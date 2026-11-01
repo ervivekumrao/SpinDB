@@ -38,6 +38,7 @@ RESOURCE_CPUS=""
 FORCE_RECREATE=false
 FORCE_REBUILD=false
 PREFLIGHT_ONLY=false
+ENABLE_HEALTHCHECK=true
 
 show_usage() {
   echo -e "$(cat << EOF
@@ -79,6 +80,7 @@ ${CLR_BOLD}OPTIONS:${CLR_RESET}
   -f, --force                      Force recreate container if name already exists
   --rebuild                        Force image build instead of fast runtime launch
   --versions, --list-versions      List available database image versions & variants
+  --no-healthcheck                 Disable container OCI healthcheck probes
   -c, --check, --preflight         Run host environment & library pre-flight checkup only
   -h, --help                       Show this help message
 
@@ -191,6 +193,10 @@ while [[ $# -gt 0 ]]; do
     --versions|--list-versions)
       list_engine_versions "${CONTAINER_DB_TYPE}" "" false false
       exit 0
+      ;;
+    --no-healthcheck)
+      ENABLE_HEALTHCHECK=false
+      shift 1
       ;;
     -c|--check|--preflight)
       PREFLIGHT_ONLY=true
@@ -310,6 +316,20 @@ fi
 # ------------------------------------------------------------------------------
 # Dispatch to Target Engine
 # ------------------------------------------------------------------------------
+apply_healthcheck() {
+  local engine="$1"
+  local port="$2"
+  local user="${3:-}"
+  local pass="${4:-}"
+  local dbname="${5:-}"
+
+  if [[ "${ENABLE_HEALTHCHECK}" == "true" ]]; then
+    build_healthcheck_args "${engine}" "${port}" "${user}" "${pass}" "${dbname}"
+  else
+    HEALTH_ARGS=()
+  fi
+}
+
 case "${CONTAINER_DB_TYPE,,}" in
 
   mysql)
@@ -328,10 +348,13 @@ case "${CONTAINER_DB_TYPE,,}" in
       INIT_MOUNT=("-v" "${INIT_SCRIPT}:/docker-entrypoint-initdb.d/setupDB.sql:ro,Z")
     fi
 
+    apply_healthcheck "mysql" "${DEFAULT_PORT}" "${MYSQL_USER:-userid}" "${MYSQL_ROOT_PASS:-${MYSQL_PASS:-P@55w0rd}}" "${MYSQL_DB:-userdata}"
+
     "${CONTAINER_ENGINE}" run -d \
       --name "${CONTAINER_DB_NAME}" \
       "${CONTAINER_LABELS[@]}" \
       "${RESOURCE_ARGS[@]}" \
+      "${HEALTH_ARGS[@]}" \
       -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
       -e MYSQL_DATABASE="${MYSQL_DB:-userdata}" \
       -e MYSQL_USER="${MYSQL_USER:-userid}" \
@@ -358,10 +381,13 @@ case "${CONTAINER_DB_TYPE,,}" in
       INIT_MOUNT=("-v" "${INIT_SCRIPT}:/docker-entrypoint-initdb.d/setupDB.sql:ro,Z")
     fi
 
+    apply_healthcheck "mariadb" "${DEFAULT_PORT}" "${MARIA_USER:-userid}" "${MARIA_ROOT_PASS:-${MARIA_PASS:-P@55w0rd}}" "${MARIA_DB:-userdata}"
+
     "${CONTAINER_ENGINE}" run -d \
       --name "${CONTAINER_DB_NAME}" \
       "${CONTAINER_LABELS[@]}" \
       "${RESOURCE_ARGS[@]}" \
+      "${HEALTH_ARGS[@]}" \
       -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
       -e MARIADB_DATABASE="${MARIA_DB:-userdata}" \
       -e MARIADB_USER="${MARIA_USER:-userid}" \
@@ -387,10 +413,13 @@ case "${CONTAINER_DB_TYPE,,}" in
       RUN_CMD=("redis-server" "--requirepass" "${REDIS_PASS}")
     fi
 
+    apply_healthcheck "redis" "${DEFAULT_PORT}" "" "${REDIS_PASS:-}" ""
+
     "${CONTAINER_ENGINE}" run -d \
       --name "${CONTAINER_DB_NAME}" \
       "${CONTAINER_LABELS[@]}" \
       "${RESOURCE_ARGS[@]}" \
+      "${HEALTH_ARGS[@]}" \
       -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
       -e REDIS_PASSWORD="${REDIS_PASS}" \
       "${VOLUME_ARG[@]}" \
@@ -413,10 +442,13 @@ case "${CONTAINER_DB_TYPE,,}" in
       INIT_MOUNT=("-v" "${INIT_SCRIPT}:/docker-entrypoint-initdb.d/setupDB.sql:ro,Z")
     fi
 
+    apply_healthcheck "clickhouse" "${DEFAULT_PORT}" "${CH_USER:-userid}" "${CH_PASS:-P@55w0rd}" "${CH_DB:-userdata}"
+
     "${CONTAINER_ENGINE}" run -d \
       --name "${CONTAINER_DB_NAME}" \
       "${CONTAINER_LABELS[@]}" \
       "${RESOURCE_ARGS[@]}" \
+      "${HEALTH_ARGS[@]}" \
       -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
       -e CLICKHOUSE_DB="${CH_DB:-userdata}" \
       -e CLICKHOUSE_USER="${CH_USER:-userid}" \
@@ -442,10 +474,13 @@ case "${CONTAINER_DB_TYPE,,}" in
       INIT_MOUNT=("-v" "${INIT_SCRIPT}:/docker-entrypoint-initdb.d/setupDB.sql:ro,Z")
     fi
 
+    apply_healthcheck "postgres" "${DEFAULT_PORT}" "${PG_USER:-userid}" "${PG_PASS:-P@55w0rd}" "${PG_DB:-pgdb}"
+
     "${CONTAINER_ENGINE}" run -d \
       --name "${CONTAINER_DB_NAME}" \
       "${CONTAINER_LABELS[@]}" \
       "${RESOURCE_ARGS[@]}" \
+      "${HEALTH_ARGS[@]}" \
       -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
       -e POSTGRES_DB="${PG_DB:-pgdb}" \
       -e POSTGRES_USER="${PG_USER:-userid}" \
@@ -474,10 +509,13 @@ case "${CONTAINER_DB_TYPE,,}" in
       INIT_MOUNT=("-v" "${INIT_SCRIPT}:/docker-entrypoint-initdb.d/setupDB.sql:ro,Z")
     fi
 
+    apply_healthcheck "pgvector" "${DEFAULT_PORT}" "${PG_USER:-userid}" "${PG_PASS:-P@55w0rd}" "${PG_DB:-vectordb}"
+
     "${CONTAINER_ENGINE}" run -d \
       --name "${CONTAINER_DB_NAME}" \
       "${CONTAINER_LABELS[@]}" \
       "${RESOURCE_ARGS[@]}" \
+      "${HEALTH_ARGS[@]}" \
       -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
       -e POSTGRES_DB="${PG_DB:-vectordb}" \
       -e POSTGRES_USER="${PG_USER:-userid}" \
@@ -498,10 +536,13 @@ case "${CONTAINER_DB_TYPE,,}" in
     fi
     IMAGE_REF="mcr.microsoft.com/mssql/server:${CONTAINER_DB_VERSION}"
 
+    apply_healthcheck "mssql" "${DEFAULT_PORT}" "sa" "${SA_PASS:-P@55w0rd}" ""
+
     "${CONTAINER_ENGINE}" run -d \
       --name "${CONTAINER_DB_NAME}" \
       "${CONTAINER_LABELS[@]}" \
       "${RESOURCE_ARGS[@]}" \
+      "${HEALTH_ARGS[@]}" \
       -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
       -e ACCEPT_EULA=Y \
       -e MSSQL_SA_PASSWORD="${SA_PASS:-P@55w0rd}" \
@@ -519,10 +560,13 @@ case "${CONTAINER_DB_TYPE,,}" in
     M_PASS="$(get_property 'MONGODB_USER_PASSWORD')"
     IMAGE_REF="mongo:${CONTAINER_DB_VERSION}"
 
+    apply_healthcheck "mongodb" "${DEFAULT_PORT}" "${M_USER:-userid}" "${M_PASS:-P@55w0rd}" "${M_DB:-mgdb}"
+
     "${CONTAINER_ENGINE}" run -d \
       --name "${CONTAINER_DB_NAME}" \
       "${CONTAINER_LABELS[@]}" \
       "${RESOURCE_ARGS[@]}" \
+      "${HEALTH_ARGS[@]}" \
       -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
       -e MONGO_INITDB_DATABASE="${M_DB:-mgdb}" \
       -e MONGO_INITDB_ROOT_USERNAME="${M_USER:-userid}" \
@@ -537,10 +581,13 @@ case "${CONTAINER_DB_TYPE,,}" in
 
     IMAGE_REF="cockroachdb/cockroach:${CONTAINER_DB_VERSION}"
 
+    apply_healthcheck "cockroach" "${DEFAULT_PORT}" "" "" ""
+
     "${CONTAINER_ENGINE}" run -d \
       --name "${CONTAINER_DB_NAME}" \
       "${CONTAINER_LABELS[@]}" \
       "${RESOURCE_ARGS[@]}" \
+      "${HEALTH_ARGS[@]}" \
       -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
       "${VOLUME_ARG[@]}" \
       "${IMAGE_REF}" \
@@ -553,10 +600,13 @@ case "${CONTAINER_DB_TYPE,,}" in
 
     IMAGE_REF="ghcr.io/nnnkkk7/snowflake-emulator:${CONTAINER_DB_VERSION}"
 
+    apply_healthcheck "snowflake" "${DEFAULT_PORT}" "" "" ""
+
     "${CONTAINER_ENGINE}" run -d \
       --name "${CONTAINER_DB_NAME}" \
       "${CONTAINER_LABELS[@]}" \
       "${RESOURCE_ARGS[@]}" \
+      "${HEALTH_ARGS[@]}" \
       -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
       "${VOLUME_ARG[@]}" \
       "${IMAGE_REF}"
@@ -569,10 +619,13 @@ case "${CONTAINER_DB_TYPE,,}" in
     ADMIN_PASS="$(get_property 'ORACLE_ADMIN_PASSWORD')"
     IMAGE_REF="ghcr.io/oracle/adb-free:${CONTAINER_DB_VERSION}"
 
+    apply_healthcheck "oracle" "${DEFAULT_PORT}" "admin" "${ADMIN_PASS:-0raclePa55w0rd}" ""
+
     "${CONTAINER_ENGINE}" run -d \
       --name "${CONTAINER_DB_NAME}" \
       "${CONTAINER_LABELS[@]}" \
       "${RESOURCE_ARGS[@]}" \
+      "${HEALTH_ARGS[@]}" \
       -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
       -e WORKLOAD_TYPE=ATP \
       -e ADMIN_PASSWORD="${ADMIN_PASS:-0raclePa55w0rd}" \
@@ -588,10 +641,13 @@ case "${CONTAINER_DB_TYPE,,}" in
     DB2_PASS="$(get_property 'DB2_DB2INST1_PASSWORD')"
     IMAGE_REF="icr.io/db2_community/db2:${CONTAINER_DB_VERSION}"
 
+    apply_healthcheck "db2" "${DEFAULT_PORT}" "db2inst" "${DB2_PASS:-P@55w0rd}" "$(get_property 'DB2_DBNAME')"
+
     "${CONTAINER_ENGINE}" run -d \
       --name "${CONTAINER_DB_NAME}" \
       "${CONTAINER_LABELS[@]}" \
       "${RESOURCE_ARGS[@]}" \
+      "${HEALTH_ARGS[@]}" \
       -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
       -e DBNAME="$(get_property 'DB2_DBNAME')" \
       -e DB2INST1_PASSWORD="${DB2_PASS:-P@55w0rd}" \
@@ -606,10 +662,13 @@ case "${CONTAINER_DB_TYPE,,}" in
 
     IMAGE_REF="apache/spark:${CONTAINER_DB_VERSION:-3.5.3}"
 
+    apply_healthcheck "databricks" "${DEFAULT_PORT}" "" "" ""
+
     "${CONTAINER_ENGINE}" run -d \
       --name "${CONTAINER_DB_NAME}" \
       "${CONTAINER_LABELS[@]}" \
       "${RESOURCE_ARGS[@]}" \
+      "${HEALTH_ARGS[@]}" \
       -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
       "${VOLUME_ARG[@]}" \
       "${IMAGE_REF}"

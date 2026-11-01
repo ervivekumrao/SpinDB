@@ -87,6 +87,7 @@ To run the pre-flight check without launching a database:
 |        | `--cpus`                  | CPU limit (e.g. `1.5`, `2.0`)                            | Unbounded                             |
 | `-f`   | `--force`                 | Force recreate container if name already exists          | False                                 |
 |        | `--rebuild`               | Force image build instead of fast runtime launch         | False                                 |
+|        | `--no-healthcheck`        | Disable container OCI healthcheck probes                 | False                                 |
 | `-e`   | `--engine`                | Force container runtime (`podman` or `docker`)           | Auto-detected                         |
 | `-c`   | `--check`, `--preflight`  | Run environment checkup only                             | -                                     |
 | `-h`   | `--help`                  | Display usage instructions                               | -                                     |

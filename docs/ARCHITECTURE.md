@@ -65,8 +65,10 @@ flowchart TD
   2. Local environment override files (`Database.properties.local` or `config/database.env`)
   3. Version-controlled defaults ([Database.properties](file:///home/user/work/DatabaseCreator/Database.properties))
 
-### 2.4 Health Probing & Active TCP Socket Verification (`lib/health.sh`)
-- **Active Socket Handshake**: Combines container engine inspection (`.State.Running`, `.State.Health.Status`) with direct TCP port polling (`/dev/tcp/127.0.0.1/${port}`) on a 1-second interval, eliminating false-positive startup reports.
+### 2.4 Health Probing & Native OCI Health Monitoring (`lib/health.sh`)
+- **Native OCI Health Probe Injection**: Dynamically injects port-aware `--health-cmd`, `--health-interval`, and `--health-start-period` flags at runtime, allowing containers to report accurate OCI lifecycle health states (`starting`, `healthy`, `unhealthy`).
+- **Port-Aware Internal Probing**: Parameterizes internal daemon ports (`${INTERNAL_PORT}`) so health checks succeed even when host-to-container port mappings vary.
+- **Dual-Tier Socket & Health Handshake**: Combines engine inspection (`.State.Health.Status == "healthy"`) with direct host TCP socket polling (`/dev/tcp/127.0.0.1/${port}`) on a 1-second interval, eliminating false-positive startup reports.
 - **Fail-Fast Crash Detection**: Continuously monitors container PID lifecycle. If the process crashes or enters `unhealthy`/`exited` state, logs are dumped immediately, preventing long timeouts.
 
 ### 2.5 Lifecycle Controller & Native Client Routing (`lib/lifecycle.sh`)
