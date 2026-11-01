@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright (c) 2024-2026 Vivek Umrao and DatabaseCreator contributors.
+# Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 # ==============================================================================
 # tests/lint.sh - Static Syntax & License Header Verification
 # ==============================================================================
@@ -22,7 +22,7 @@ done < <(find "${PROJECT_ROOT}" -name "*.sh" -not -path "*/build*")
 
 if command -v shellcheck >/dev/null 2>&1; then
   echo "==> Running Shellcheck..."
-  shellcheck -e SC1091 "${PROJECT_ROOT}"/bin/dbcreator "${PROJECT_ROOT}"/lib/*.sh || failed=1
+  shellcheck -e SC1091 "${PROJECT_ROOT}"/bin/spinctl "${PROJECT_ROOT}"/lib/*.sh || failed=1
 else
   echo "[INFO] shellcheck not installed, skipping advanced linting."
 fi

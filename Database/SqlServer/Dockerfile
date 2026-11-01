@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
-# Copyright (c) 2024-2026 Vivek Umrao and DatabaseCreator contributors.
+# Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 
 ARG DB_VERSION
 FROM mcr.microsoft.com/mssql/server:${DB_VERSION}
 #FROM mcr.microsoft.com/mssql/server:${DB_VERSION}-latest
-MAINTAINER vivek.umrao
+LABEL maintainer="Vivek Umrao and SpinDB contributors"
 EXPOSE 1433
 
 ENV ACCEPT_EULA Y

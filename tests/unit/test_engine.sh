@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright (c) 2024-2026 Vivek Umrao and DatabaseCreator contributors.
+# Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 # ==============================================================================
 # tests/unit/test_engine.sh - Unit Tests for lib/engine.sh
 # ==============================================================================
@@ -58,7 +58,7 @@ test_install_command_generation() {
 test_preflight_on_host() {
   PREFLIGHT_ONLY=true
   # Should run and exit 0 without error on the host
-  "${PROJECT_ROOT}/bin/dbcreator" --preflight >/dev/null
+  "${PROJECT_ROOT}/bin/spinctl" --preflight >/dev/null
   return 0
 }
 
@@ -74,10 +74,10 @@ test_docker_fallback_simulation() {
   done
 
   local output
-  output="$(PATH="${tmp_bin}" "${PROJECT_ROOT}/bin/dbcreator" --preflight 2>&1)"
+  output="$(PATH="${tmp_bin}" "${PROJECT_ROOT}/bin/spinctl" --preflight 2>&1)"
   rm -rf "${tmp_bin}"
 
-  assert_contains "${output}" "Falling back to Docker" "Did not trigger Docker fallback"
+  assert_contains "${output}" "Utilizing operational Docker runtime" "Did not trigger Docker fallback"
   assert_contains "${output}" "apt-get install -y podman" "Missing install command in fallback warning"
 }
 

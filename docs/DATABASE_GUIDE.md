@@ -1,11 +1,11 @@
 # Database Engine & Connection Reference Guide
 
 **SPDX-License-Identifier:** Apache-2.0  
-**Copyright:** (c) 2024-2026 Vivek Umrao and DatabaseCreator contributors.
+**Copyright:** (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 
 ---
 
-This guide provides technical specifications, connection URLs, CLI connection commands, official JDBC driver download paths, and code samples for all **12 database, cache, and lakehouse engines** supported by DatabaseCreator.
+This guide provides technical specifications, connection URLs, CLI connection commands, official JDBC driver download paths, and code samples for all **12 database, cache, and lakehouse engines** supported by SpinDB.
 
 ---
 
@@ -252,3 +252,29 @@ This guide provides technical specifications, connection URLs, CLI connection co
   ```
 - **Spark Web UI:**
   Open browser at `http://localhost:4040` to view Spark jobs, stages, SQL DAGs, and storage memory.
+
+---
+
+## 13. PostgreSQL with pgvector (AI Vector Search & Embeddings)
+
+- **Engine Key:** `-t pgvector`
+- **Default Port:** `5432`
+- **Default Database:** `vectordb` | **User:** `userid` | **Password:** `P@55w0rd`
+- **Driver Class:** `org.postgresql.Driver`
+- **Official JDBC Driver:** [PostgreSQL JDBC Portal](https://jdbc.postgresql.org/download/) | [Maven Central](https://repo1.maven.org/maven2/org/postgresql/postgresql/)
+- **JDBC URL:** `jdbc:postgresql://localhost:5432/vectordb`
+- **CLI Connection (psql):**
+  ```bash
+  psql -h 127.0.0.1 -p 5432 -U userid -d vectordb
+  # or directly via spinctl:
+  spinctl connect dev-vector
+  # or: ./bin/spinctl connect dev-vector
+  ```
+- **Vector SQL Query Sample:**
+  ```sql
+  CREATE EXTENSION IF NOT EXISTS vector;
+  CREATE TABLE items (id bigserial PRIMARY KEY, embedding vector(3));
+  INSERT INTO items (embedding) VALUES ('[1,2,3]'), ('[4,5,6]');
+  SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
+  ```
+

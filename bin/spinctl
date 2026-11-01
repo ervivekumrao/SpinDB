@@ -1,0 +1,668 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
+# ==============================================================================
+# bin/spinctl - Unified Multi-Vendor Database & Cache CLI for SpinDB
+# ==============================================================================
+
+set -eo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# Source modular libraries
+source "${PROJECT_ROOT}/lib/logger.sh"
+source "${PROJECT_ROOT}/lib/config.sh"
+source "${PROJECT_ROOT}/lib/engine.sh"
+source "${PROJECT_ROOT}/lib/health.sh"
+source "${PROJECT_ROOT}/lib/lifecycle.sh"
+
+PROPERTIES_FILE="${PROJECT_ROOT}/Database.properties"
+
+# Default configuration
+CONTAINER_DB_TYPE="mysql"
+CONTAINER_DB_VERSION="latest"
+CONTAINER_DB_NAME="localdb"
+CONTAINER_DB_PORT=""
+CONTAINER_IMAGE_NAME=""
+CONTAINER_REPO_NAME=""
+CONTAINER_ENGINE=""
+DATA_VOLUME=""
+HOST_BIND="127.0.0.1"
+RESOURCE_MEMORY=""
+RESOURCE_CPUS=""
+FORCE_RECREATE=false
+FORCE_REBUILD=false
+PREFLIGHT_ONLY=false
+
+show_usage() {
+  echo -e "$(cat << EOF
+
+${CLR_BOLD}SpinDB (spinctl) - Multi-Vendor Database & Cache Container Orchestrator${CLR_RESET}
+
+${CLR_BOLD}USAGE:${CLR_RESET}
+  spinctl [OPTIONS]
+  spinctl <SUBCOMMAND> [ARGS]
+
+${CLR_BOLD}DATABASE & CACHE ENGINES (-t, --database-type):${CLR_RESET}
+  * mysql         - MySQL Relational Database (Default port: 3306)
+  * mariadb       - MariaDB Relational Database (Default port: 3306)
+  * postgres      - PostgreSQL Object-Relational Database (Default port: 5432)
+  * pgvector      - PostgreSQL with pgvector Vector Embeddings (Default port: 5432)
+  * mssql         - Microsoft SQL Server (Default port: 1433)
+  * oracle        - Oracle Autonomous Database Free (Default port: 1521)
+  * mongodb       - MongoDB Document NoSQL Database (Default port: 27017)
+  * db2           - IBM DB2 Enterprise Database (Default port: 50000)
+  * redis         - Redis / Valkey In-Memory Key-Value & Cache (Default port: 6379)
+  * clickhouse    - ClickHouse Columnar OLAP Analytics Database (Default port: 8123)
+  * cockroach     - CockroachDB Distributed SQL Database (Default port: 26257, Web UI: 8080)
+  * snowflake     - Snowflake Local Emulator with DuckDB Engine (Default port: 8080)
+  * databricks    - Databricks Local Engine: Apache Spark + Delta Lake (Default port: 10000, UI: 4040)
+
+${CLR_BOLD}OPTIONS:${CLR_RESET}
+  -t, --database-type <vendor>     Database engine vendor (Default: mysql)
+  -v, --database-version <ver>     Base image version tag (Default: latest)
+  -n, --database-name <name>       Container name (Default: localdb)
+  -p, --docker-port, --port <port> Host port mapping to database service
+  -b, --bind, --host-ip <ip>       Host IP to bind (Default: 127.0.0.1 for local security)
+  --bind-all                       Bind to 0.0.0.0 (all interfaces, for external LAN access)
+  -i, --image-name <name>          Local container image tag name (Default: img)
+  -r, --image-repo <repo>          Image repository namespace (Default: local.image)
+  -e, --engine <engine>            Force engine: 'podman' or 'docker' (Default: auto-detect)
+  -d, --data-dir, --volume <vol>   Host directory or named volume for data persistence
+  -m, --memory <limit>             Container memory limit (e.g. 512m, 2g)
+  --cpus <limit>                   Container CPU limit (e.g. 1.5, 2.0)
+  -f, --force                      Force recreate container if name already exists
+  --rebuild                        Force image build instead of fast runtime launch
+  -c, --check, --preflight         Run host environment & library pre-flight checkup only
+  -h, --help                       Show this help message
+
+${CLR_BOLD}CONTAINER LIFECYCLE SUBCOMMANDS:${CLR_RESET}
+  spinctl status [name]            View running database containers
+  spinctl start <name>             Start a stopped database container
+  spinctl restart <name>           Restart a database container
+  spinctl stop [name|--all]        Stop running database container(s)
+  spinctl logs [name]              Tail database container logs
+  spinctl rm [name|--all]          Stop and remove database container(s)
+  spinctl connect <name>           Launch interactive client shell inside container
+  spinctl env <name>               Print connection strings and environment variables
+
+${CLR_BOLD}EXAMPLES:${CLR_RESET}
+  # Spin up PostgreSQL 16 on port 5432:
+  spinctl -t postgres -v 16 -p 5432 -n dev-pg
+
+  # Spin up pgvector AI vector database:
+  spinctl -t pgvector -p 5432 -n dev-vector
+
+  # Spin up Redis cache on port 6379:
+  spinctl -t redis -p 6379 -n dev-redis
+
+  # Connect directly to container database CLI:
+  spinctl connect dev-pg
+EOF
+)"
+}
+
+# Check for lifecycle subcommands first
+if [[ "$#" -gt 0 ]]; then
+  case "${1,,}" in
+    status|start|restart|stop|logs|rm|remove|connect|cli|env)
+      handle_lifecycle_command "${1,,}" "$2"
+      ;;
+  esac
+fi
+
+# Parse options
+while [[ $# -gt 0 ]]; do
+  case "${1,,}" in
+    -t|--database-type)
+      CONTAINER_DB_TYPE="$2"
+      shift 2
+      ;;
+    -v|--database-version)
+      CONTAINER_DB_VERSION="$2"
+      shift 2
+      ;;
+    -n|--database-name)
+      CONTAINER_DB_NAME="$2"
+      shift 2
+      ;;
+    -p|--docker-port|--port)
+      CONTAINER_DB_PORT="$2"
+      shift 2
+      ;;
+    -b|--bind|--host-ip)
+      HOST_BIND="$2"
+      shift 2
+      ;;
+    --bind-all)
+      HOST_BIND="0.0.0.0"
+      shift 1
+      ;;
+    -i|--image-name)
+      CONTAINER_IMAGE_NAME="$2"
+      shift 2
+      ;;
+    -r|--image-repo)
+      CONTAINER_REPO_NAME="$2"
+      shift 2
+      ;;
+    -e|--engine)
+      CONTAINER_ENGINE="$2"
+      shift 2
+      ;;
+    -d|--data-dir|--volume)
+      DATA_VOLUME="$2"
+      shift 2
+      ;;
+    -m|--memory)
+      RESOURCE_MEMORY="$2"
+      shift 2
+      ;;
+    --cpus)
+      RESOURCE_CPUS="$2"
+      shift 2
+      ;;
+    -f|--force)
+      FORCE_RECREATE=true
+      shift 1
+      ;;
+    --rebuild)
+      FORCE_REBUILD=true
+      shift 1
+      ;;
+    -c|--check|--preflight)
+      PREFLIGHT_ONLY=true
+      shift 1
+      ;;
+    -h|--help)
+      show_usage
+      exit 0
+      ;;
+    *)
+      log_error "Unknown option: $1"
+      show_usage
+      exit 1
+      ;;
+  esac
+done
+
+# Run host environment & library pre-flight checkup
+run_preflight_check
+
+log_info "Using Container Engine: ${CLR_BOLD}${CONTAINER_ENGINE}${CLR_RESET}"
+
+# Build image tag name
+if [[ -n "${CONTAINER_IMAGE_NAME}" || -n "${CONTAINER_REPO_NAME}" ]]; then
+  FULL_IMAGE_TAG="${CONTAINER_REPO_NAME:-local.image}:${CONTAINER_IMAGE_NAME:-img}"
+else
+  FULL_IMAGE_TAG="spindb/${CONTAINER_DB_TYPE}:${CONTAINER_DB_VERSION}"
+fi
+
+BUILD_OPTS=()
+if [[ "${CONTAINER_ENGINE}" == "podman" ]]; then
+  BUILD_OPTS=("--format" "docker")
+fi
+
+# Format volume argument if requested
+VOLUME_ARG=()
+get_volume_param() {
+  local container_dest="$1"
+  if [[ -n "${DATA_VOLUME}" ]]; then
+    if [[ -d "${DATA_VOLUME}" || "${DATA_VOLUME}" =~ ^/ ]]; then
+      mkdir -p "${DATA_VOLUME}" 2>/dev/null || true
+      VOLUME_ARG=("-v" "${DATA_VOLUME}:${container_dest}:Z")
+    else
+      VOLUME_ARG=("-v" "${DATA_VOLUME}:${container_dest}")
+    fi
+    log_info "Persistent Volume configured: ${DATA_VOLUME} -> ${container_dest}"
+  fi
+}
+
+# Resource limits arguments
+RESOURCE_ARGS=()
+if [[ -n "${RESOURCE_MEMORY}" ]]; then
+  RESOURCE_ARGS+=("--memory" "${RESOURCE_MEMORY}")
+fi
+if [[ -n "${RESOURCE_CPUS}" ]]; then
+  RESOURCE_ARGS+=("--cpus" "${RESOURCE_CPUS}")
+fi
+
+# Standard OCI labels
+CONTAINER_LABELS=(
+  "--label" "app=spindb"
+  "--label" "spindb.engine=${CONTAINER_DB_TYPE}"
+  "--label" "spindb.version=${CONTAINER_DB_VERSION}"
+)
+
+# Check container name collision
+if "${CONTAINER_ENGINE}" inspect "${CONTAINER_DB_NAME}" >/dev/null 2>&1; then
+  local_running="$("${CONTAINER_ENGINE}" inspect -f '{{.State.Running}}' "${CONTAINER_DB_NAME}" 2>/dev/null || echo "false")"
+  if [[ "${FORCE_RECREATE}" == "true" ]]; then
+    log_warn "Container '${CONTAINER_DB_NAME}' already exists. --force specified; recreating container..."
+    "${CONTAINER_ENGINE}" rm -f "${CONTAINER_DB_NAME}" >/dev/null 2>&1 || true
+  elif [[ "${local_running}" == "true" ]]; then
+    log_error "A running container named '${CONTAINER_DB_NAME}' already exists!"
+    printf "To manage it, use:\n"
+    printf "  spinctl status %s\n" "${CONTAINER_DB_NAME}"
+    printf "  spinctl stop %s\n" "${CONTAINER_DB_NAME}"
+    printf "Or re-run with -f / --force to recreate it, or use -n <new-name>.\n"
+    exit 1
+  else
+    log_warn "A stopped container named '${CONTAINER_DB_NAME}' already exists."
+    log_info "Starting existing container '${CONTAINER_DB_NAME}'..."
+    "${CONTAINER_ENGINE}" start "${CONTAINER_DB_NAME}"
+    wait_for_container_health "${CONTAINER_DB_NAME}" "${CONTAINER_DB_PORT:-${DEFAULT_PORT}}" "${HOST_BIND}"
+    exit 0
+  fi
+fi
+
+# ------------------------------------------------------------------------------
+# Dispatch to Target Engine
+# ------------------------------------------------------------------------------
+case "${CONTAINER_DB_TYPE,,}" in
+
+  mysql)
+    DEFAULT_PORT=3306
+    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
+    get_volume_param "/var/lib/mysql"
+    log_info "Launching MySQL on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
+
+    # Check port availability
+    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
+      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
+      exit 1
+    fi
+
+    MYSQL_DB="$(get_property 'MYSQL_DBNAME')"
+    MYSQL_USER="$(get_property 'MYSQL_USER_ID')"
+    MYSQL_PASS="$(get_property 'MYSQL_USER_PASSWORD')"
+    MYSQL_ROOT_PASS="$(get_property 'MYSQL_ROOT_PASSWORD')"
+    IMAGE_REF="mysql:${CONTAINER_DB_VERSION}"
+
+    INIT_SCRIPT="${PROJECT_ROOT}/Database/MYSQL/setupDB.sql"
+    INIT_MOUNT=()
+    if [[ -f "${INIT_SCRIPT}" ]]; then
+      INIT_MOUNT=("-v" "${INIT_SCRIPT}:/docker-entrypoint-initdb.d/setupDB.sql:ro,Z")
+    fi
+
+    "${CONTAINER_ENGINE}" run -d \
+      --name "${CONTAINER_DB_NAME}" \
+      "${CONTAINER_LABELS[@]}" \
+      "${RESOURCE_ARGS[@]}" \
+      -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
+      -e MYSQL_DATABASE="${MYSQL_DB:-userdata}" \
+      -e MYSQL_USER="${MYSQL_USER:-userid}" \
+      -e MYSQL_PASSWORD="${MYSQL_PASS:-P@55w0rd}" \
+      -e MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASS:-P@55w0rd}" \
+      "${INIT_MOUNT[@]}" \
+      "${VOLUME_ARG[@]}" \
+      "${IMAGE_REF}"
+    ;;
+
+  mariadb)
+    DEFAULT_PORT=3306
+    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
+    get_volume_param "/var/lib/mysql"
+    log_info "Launching MariaDB on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
+
+    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
+      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
+      exit 1
+    fi
+
+    MARIA_DB="$(get_property 'MARIADB_DBNAME')"
+    MARIA_USER="$(get_property 'MARIADB_USER_ID')"
+    MARIA_PASS="$(get_property 'MARIADB_USER_PASSWORD')"
+    MARIA_ROOT_PASS="$(get_property 'MARIADB_ROOT_PASSWORD')"
+    IMAGE_REF="mariadb:${CONTAINER_DB_VERSION}"
+
+    INIT_SCRIPT="${PROJECT_ROOT}/Database/MariaDB/setupDB.sql"
+    INIT_MOUNT=()
+    if [[ -f "${INIT_SCRIPT}" ]]; then
+      INIT_MOUNT=("-v" "${INIT_SCRIPT}:/docker-entrypoint-initdb.d/setupDB.sql:ro,Z")
+    fi
+
+    "${CONTAINER_ENGINE}" run -d \
+      --name "${CONTAINER_DB_NAME}" \
+      "${CONTAINER_LABELS[@]}" \
+      "${RESOURCE_ARGS[@]}" \
+      -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
+      -e MARIADB_DATABASE="${MARIA_DB:-userdata}" \
+      -e MARIADB_USER="${MARIA_USER:-userid}" \
+      -e MARIADB_PASSWORD="${MARIA_PASS:-P@55w0rd}" \
+      -e MARIADB_ROOT_PASSWORD="${MARIA_ROOT_PASS:-P@55w0rd}" \
+      "${INIT_MOUNT[@]}" \
+      "${VOLUME_ARG[@]}" \
+      "${IMAGE_REF}"
+    ;;
+
+  redis|valkey)
+    DEFAULT_PORT=6379
+    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
+    get_volume_param "/data"
+    log_info "Launching Redis / Valkey Cache on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
+
+    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
+      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
+      exit 1
+    fi
+
+    REDIS_PASS="$(get_property 'REDIS_PASSWORD')"
+    IMAGE_REF="redis:${CONTAINER_DB_VERSION}"
+    if [[ "${CONTAINER_DB_VERSION}" == "latest" ]]; then
+      IMAGE_REF="redis:7-alpine"
+    fi
+
+    RUN_CMD=()
+    if [[ -n "${REDIS_PASS}" && "${REDIS_PASS}" != "REDIS_PASSWORD_VALUE" ]]; then
+      RUN_CMD=("redis-server" "--requirepass" "${REDIS_PASS}")
+    fi
+
+    "${CONTAINER_ENGINE}" run -d \
+      --name "${CONTAINER_DB_NAME}" \
+      "${CONTAINER_LABELS[@]}" \
+      "${RESOURCE_ARGS[@]}" \
+      -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
+      -e REDIS_PASSWORD="${REDIS_PASS}" \
+      "${VOLUME_ARG[@]}" \
+      "${IMAGE_REF}" \
+      "${RUN_CMD[@]}"
+    ;;
+
+  clickhouse)
+    DEFAULT_PORT=8123
+    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
+    get_volume_param "/var/lib/clickhouse"
+    log_info "Launching ClickHouse Analytics on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
+
+    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
+      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
+      exit 1
+    fi
+
+    CH_DB="$(get_property 'CLICKHOUSE_DBNAME')"
+    CH_USER="$(get_property 'CLICKHOUSE_USER_ID')"
+    CH_PASS="$(get_property 'CLICKHOUSE_USER_PASSWORD')"
+    IMAGE_REF="clickhouse/clickhouse-server:${CONTAINER_DB_VERSION}"
+
+    INIT_SCRIPT="${PROJECT_ROOT}/Database/ClickHouse/setupDB.sql"
+    INIT_MOUNT=()
+    if [[ -f "${INIT_SCRIPT}" ]]; then
+      INIT_MOUNT=("-v" "${INIT_SCRIPT}:/docker-entrypoint-initdb.d/setupDB.sql:ro,Z")
+    fi
+
+    "${CONTAINER_ENGINE}" run -d \
+      --name "${CONTAINER_DB_NAME}" \
+      "${CONTAINER_LABELS[@]}" \
+      "${RESOURCE_ARGS[@]}" \
+      -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
+      -e CLICKHOUSE_DB="${CH_DB:-userdata}" \
+      -e CLICKHOUSE_USER="${CH_USER:-userid}" \
+      -e CLICKHOUSE_PASSWORD="${CH_PASS:-P@55w0rd}" \
+      -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
+      "${INIT_MOUNT[@]}" \
+      "${VOLUME_ARG[@]}" \
+      "${IMAGE_REF}"
+    ;;
+
+  postgres|postgresql)
+    DEFAULT_PORT=5432
+    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
+    get_volume_param "/var/lib/postgresql/data"
+    log_info "Launching PostgreSQL on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
+
+    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
+      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
+      exit 1
+    fi
+
+    PG_DB="$(get_property 'POSTGRES_DBNAME')"
+    PG_USER="$(get_property 'POSTGRES_USER_ID')"
+    PG_PASS="$(get_property 'POSTGRES_USER_PASSWORD')"
+    IMAGE_REF="postgres:${CONTAINER_DB_VERSION}"
+
+    INIT_SCRIPT="${PROJECT_ROOT}/Database/PostgreSQL/setupDB.sql"
+    INIT_MOUNT=()
+    if [[ -f "${INIT_SCRIPT}" ]]; then
+      INIT_MOUNT=("-v" "${INIT_SCRIPT}:/docker-entrypoint-initdb.d/setupDB.sql:ro,Z")
+    fi
+
+    "${CONTAINER_ENGINE}" run -d \
+      --name "${CONTAINER_DB_NAME}" \
+      "${CONTAINER_LABELS[@]}" \
+      "${RESOURCE_ARGS[@]}" \
+      -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
+      -e POSTGRES_DB="${PG_DB:-pgdb}" \
+      -e POSTGRES_USER="${PG_USER:-userid}" \
+      -e POSTGRES_PASSWORD="${PG_PASS:-P@55w0rd}" \
+      -e POSTGRES_HOST_AUTH_METHOD=scram-sha-256 \
+      "${INIT_MOUNT[@]}" \
+      "${VOLUME_ARG[@]}" \
+      "${IMAGE_REF}"
+    ;;
+
+  pgvector)
+    DEFAULT_PORT=5432
+    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
+    get_volume_param "/var/lib/postgresql/data"
+    log_info "Launching PostgreSQL with pgvector AI Engine on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
+
+    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
+      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
+      exit 1
+    fi
+
+    PG_DB="$(get_property 'POSTGRES_DBNAME')"
+    PG_USER="$(get_property 'POSTGRES_USER_ID')"
+    PG_PASS="$(get_property 'POSTGRES_USER_PASSWORD')"
+    IMAGE_REF="pgvector/pgvector:${CONTAINER_DB_VERSION}"
+    if [[ "${CONTAINER_DB_VERSION}" == "latest" ]]; then
+      IMAGE_REF="pgvector/pgvector:pg16"
+    fi
+
+    INIT_SCRIPT="${PROJECT_ROOT}/Database/PostgreSQL/setupDB.sql"
+    INIT_MOUNT=()
+    if [[ -f "${INIT_SCRIPT}" ]]; then
+      INIT_MOUNT=("-v" "${INIT_SCRIPT}:/docker-entrypoint-initdb.d/setupDB.sql:ro,Z")
+    fi
+
+    "${CONTAINER_ENGINE}" run -d \
+      --name "${CONTAINER_DB_NAME}" \
+      "${CONTAINER_LABELS[@]}" \
+      "${RESOURCE_ARGS[@]}" \
+      -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
+      -e POSTGRES_DB="${PG_DB:-vectordb}" \
+      -e POSTGRES_USER="${PG_USER:-userid}" \
+      -e POSTGRES_PASSWORD="${PG_PASS:-P@55w0rd}" \
+      -e POSTGRES_HOST_AUTH_METHOD=scram-sha-256 \
+      "${INIT_MOUNT[@]}" \
+      "${VOLUME_ARG[@]}" \
+      "${IMAGE_REF}"
+    ;;
+
+  mssql|"sql server")
+    DEFAULT_PORT=1433
+    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
+    get_volume_param "/var/opt/mssql"
+    log_info "Launching Microsoft SQL Server on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
+
+    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
+      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
+      exit 1
+    fi
+
+    SA_PASS="$(get_property 'MSSQL_SA_PASSWORD')"
+    if [[ "${CONTAINER_DB_VERSION}" == "latest" ]]; then
+      CONTAINER_DB_VERSION="2022-latest"
+    fi
+    IMAGE_REF="mcr.microsoft.com/mssql/server:${CONTAINER_DB_VERSION}"
+
+    "${CONTAINER_ENGINE}" run -d \
+      --name "${CONTAINER_DB_NAME}" \
+      "${CONTAINER_LABELS[@]}" \
+      "${RESOURCE_ARGS[@]}" \
+      -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
+      -e ACCEPT_EULA=Y \
+      -e MSSQL_SA_PASSWORD="${SA_PASS:-P@55w0rd}" \
+      -e MSSQL_PID=Developer \
+      "${VOLUME_ARG[@]}" \
+      "${IMAGE_REF}"
+    ;;
+
+  mongodb|mongo)
+    DEFAULT_PORT=27017
+    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
+    get_volume_param "/data/db"
+    log_info "Launching MongoDB on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
+
+    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
+      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
+      exit 1
+    fi
+
+    M_DB="$(get_property 'MONGODB_DBNAME')"
+    M_USER="$(get_property 'MONGODB_USER_ID')"
+    M_PASS="$(get_property 'MONGODB_USER_PASSWORD')"
+    IMAGE_REF="mongo:${CONTAINER_DB_VERSION}"
+
+    "${CONTAINER_ENGINE}" run -d \
+      --name "${CONTAINER_DB_NAME}" \
+      "${CONTAINER_LABELS[@]}" \
+      "${RESOURCE_ARGS[@]}" \
+      -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
+      -e MONGO_INITDB_DATABASE="${M_DB:-mgdb}" \
+      -e MONGO_INITDB_ROOT_USERNAME="${M_USER:-userid}" \
+      -e MONGO_INITDB_ROOT_PASSWORD="${M_PASS:-P@55w0rd}" \
+      "${VOLUME_ARG[@]}" \
+      "${IMAGE_REF}"
+    ;;
+
+  cockroach|cockroachdb)
+    DEFAULT_PORT=26257
+    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
+    get_volume_param "/cockroach/cockroach-data"
+    log_info "Launching CockroachDB on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
+
+    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
+      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
+      exit 1
+    fi
+
+    IMAGE_REF="cockroachdb/cockroach:${CONTAINER_DB_VERSION}"
+
+    "${CONTAINER_ENGINE}" run -d \
+      --name "${CONTAINER_DB_NAME}" \
+      "${CONTAINER_LABELS[@]}" \
+      "${RESOURCE_ARGS[@]}" \
+      -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
+      "${VOLUME_ARG[@]}" \
+      "${IMAGE_REF}" \
+      start-single-node --insecure --http-addr=0.0.0.0:8080 --listen-addr=0.0.0.0:26257
+    ;;
+
+  snowflake|snowflake-emulator)
+    DEFAULT_PORT=8080
+    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
+    get_volume_param "/data"
+    log_info "Launching Snowflake Local Emulator on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
+
+    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
+      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
+      exit 1
+    fi
+
+    IMAGE_REF="ghcr.io/nnnkkk7/snowflake-emulator:${CONTAINER_DB_VERSION}"
+
+    "${CONTAINER_ENGINE}" run -d \
+      --name "${CONTAINER_DB_NAME}" \
+      "${CONTAINER_LABELS[@]}" \
+      "${RESOURCE_ARGS[@]}" \
+      -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
+      "${VOLUME_ARG[@]}" \
+      "${IMAGE_REF}"
+    ;;
+
+  oracle)
+    DEFAULT_PORT=1521
+    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
+    get_volume_param "/opt/oracle/oradata"
+    log_info "Launching Oracle Autonomous Database Free on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
+
+    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
+      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
+      exit 1
+    fi
+
+    ADMIN_PASS="$(get_property 'ORACLE_ADMIN_PASSWORD')"
+    IMAGE_REF="ghcr.io/oracle/adb-free:${CONTAINER_DB_VERSION}"
+
+    "${CONTAINER_ENGINE}" run -d \
+      --name "${CONTAINER_DB_NAME}" \
+      "${CONTAINER_LABELS[@]}" \
+      "${RESOURCE_ARGS[@]}" \
+      -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
+      -e WORKLOAD_TYPE=ATP \
+      -e ADMIN_PASSWORD="${ADMIN_PASS:-0raclePa55w0rd}" \
+      --cap-add SYS_ADMIN --device /dev/fuse \
+      "${VOLUME_ARG[@]}" \
+      "${IMAGE_REF}"
+    ;;
+
+  db2|ibmdb2)
+    DEFAULT_PORT=50000
+    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
+    get_volume_param "/database"
+    log_info "Launching IBM DB2 on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
+
+    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
+      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
+      exit 1
+    fi
+
+    DB2_PASS="$(get_property 'DB2_DB2INST1_PASSWORD')"
+    IMAGE_REF="icr.io/db2_community/db2:${CONTAINER_DB_VERSION}"
+
+    "${CONTAINER_ENGINE}" run -d \
+      --name "${CONTAINER_DB_NAME}" \
+      "${CONTAINER_LABELS[@]}" \
+      "${RESOURCE_ARGS[@]}" \
+      -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
+      -e DBNAME="$(get_property 'DB2_DBNAME')" \
+      -e DB2INST1_PASSWORD="${DB2_PASS:-P@55w0rd}" \
+      -e LICENSE=accept \
+      "${VOLUME_ARG[@]}" \
+      "${IMAGE_REF}"
+    ;;
+
+  databricks|spark-delta|delta-lake)
+    DEFAULT_PORT=10000
+    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
+    get_volume_param "/opt/spark/data"
+    log_info "Launching Databricks Local Engine (Apache Spark + Delta Lake) on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
+
+    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
+      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
+      exit 1
+    fi
+
+    IMAGE_REF="apache/spark:${CONTAINER_DB_VERSION:-3.5.3}"
+
+    "${CONTAINER_ENGINE}" run -d \
+      --name "${CONTAINER_DB_NAME}" \
+      "${CONTAINER_LABELS[@]}" \
+      "${RESOURCE_ARGS[@]}" \
+      -p "${HOST_BIND}:${CONTAINER_DB_PORT}:${DEFAULT_PORT}" \
+      "${VOLUME_ARG[@]}" \
+      "${IMAGE_REF}"
+    ;;
+
+  *)
+    log_error "Unknown database type: ${CONTAINER_DB_TYPE}"
+    show_usage
+    exit 1
+    ;;
+esac
+
+# Monitor container readiness
+wait_for_container_health "${CONTAINER_DB_NAME}" "${CONTAINER_DB_PORT}" "${HOST_BIND}"

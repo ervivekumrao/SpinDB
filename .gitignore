@@ -1,27 +1,43 @@
-# DatabaseCreator .gitignore
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
+# ==============================================================================
+# SpinDB .gitignore - Comprehensive Project Exclusion Manifest
+# ==============================================================================
 
-# IDE and Editor files
+# IDE, Editor, and System Artifacts
 .idea/
 .vscode/
+*.iml
 *.swp
 *.swo
 *~
 .DS_Store
+Thumbs.db
 
-# Ephemeral build and temporary directories
+# Agentic, Assistant & Workspace Metadatas
+.agents/
+.gemini/
+skills/
+
+# Ephemeral Build & Temporary Directories
 build/
 build.*/
 tmp/
 *.tmp
+.cache/
 
-# Environment and sensitive configuration overrides
+# Environment Overrides & Secret Credentials (Never Commit Secrets)
 *.local.properties
 Database.properties.local
+config/Database.properties.local
 *.env
-!.env.example
+!config/database.env.example
 secrets/
+*.pem
+*.key
+*.crt
 
-# Database data directories and persistent volumes (if stored locally)
+# Persistent Database Storage & Data Dumps
 data/
 pgdata/
 mysqldata/
@@ -29,11 +45,19 @@ mongodata/
 db2data/
 redisdata/
 clickhousedata/
+cockroachdata/
+*.mdf
+*.ldf
+*.dump
+*.archive
 
-# Logs
+# Execution & Test Logs
 *.log
 logs/
+test_output.log
+/tmp/test_*.log
 
-# Container runtime artifacts
+# Container Runtime Ephemeral Files
 .container-id*
 .podman*
+.docker*

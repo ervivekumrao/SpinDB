@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright (c) 2024-2026 Vivek Umrao and DatabaseCreator contributors.
+# Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 # ==============================================================================
 # tests/unit/test_cli.sh - Unit Tests for CLI Routing & Argument Parsing
 # ==============================================================================
@@ -16,34 +16,25 @@ source "${TESTS_DIR}/test_harness.sh"
 test_suite_start "CLI Interface & Argument Routing"
 
 test_help_flags() {
-  "${PROJECT_ROOT}/bin/dbcreator" --help >/dev/null
-  "${PROJECT_ROOT}/bin/dbcreator" -h >/dev/null
-  "${PROJECT_ROOT}/CreateDB.sh" --help >/dev/null
+  "${PROJECT_ROOT}/bin/spinctl" --help >/dev/null
+  "${PROJECT_ROOT}/bin/spinctl" -h >/dev/null
   return 0
 }
 
 test_invalid_option_fails() {
-  if "${PROJECT_ROOT}/bin/dbcreator" --invalid-flag-xyz >/dev/null 2>&1; then
+  if "${PROJECT_ROOT}/bin/spinctl" --invalid-flag-xyz >/dev/null 2>&1; then
     printf "Expected invalid option to exit with non-zero\n" >&2
     return 1
   fi
   return 0
 }
 
-test_backward_compatible_wrapper() {
-  # Verify CreateDB.sh produces identical help as bin/dbcreator
-  local out1 out2
-  out1="$("${PROJECT_ROOT}/bin/dbcreator" --help)"
-  out2="$("${PROJECT_ROOT}/CreateDB.sh" --help)"
-  assert_equals "${out1}" "${out2}" "CreateDB.sh and bin/dbcreator help output differs"
-}
-
-test_help_lists_all_12_engines() {
+test_help_lists_all_13_engines() {
   local help_out
-  help_out="$("${PROJECT_ROOT}/bin/dbcreator" --help)"
+  help_out="$("${PROJECT_ROOT}/bin/spinctl" --help)"
 
   local expected_engines=(
-    "mysql" "mariadb" "postgres" "mssql" "oracle"
+    "mysql" "mariadb" "postgres" "pgvector" "mssql" "oracle"
     "mongodb" "db2" "redis" "clickhouse" "cockroach"
     "snowflake" "databricks"
   )
@@ -53,9 +44,20 @@ test_help_lists_all_12_engines() {
   done
 }
 
+test_enterprise_flags_advertised() {
+  local help_out
+  help_out="$("${PROJECT_ROOT}/bin/spinctl" --help)"
+  assert_contains "${help_out}" "--bind" "Missing --bind"
+  assert_contains "${help_out}" "--bind-all" "Missing --bind-all"
+  assert_contains "${help_out}" "--memory" "Missing --memory"
+  assert_contains "${help_out}" "--cpus" "Missing --cpus"
+  assert_contains "${help_out}" "--force" "Missing --force"
+  assert_contains "${help_out}" "--rebuild" "Missing --rebuild"
+}
+
 run_test "Help flags exit 0" test_help_flags
 run_test "Invalid flags exit non-zero" test_invalid_option_fails
-run_test "CreateDB.sh wrapper behaves identically to bin/dbcreator" test_backward_compatible_wrapper
-run_test "Help output advertises all 12 supported engines" test_help_lists_all_12_engines
+run_test "Help output advertises all supported engines including pgvector" test_help_lists_all_13_engines
+run_test "Help output advertises enterprise security & resource flags" test_enterprise_flags_advertised
 
 test_suite_end

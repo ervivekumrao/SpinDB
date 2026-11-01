@@ -1,13 +1,13 @@
-# In-Depth Testing Guide: DatabaseCreator
+# In-Depth Testing Guide: SpinDB
 
 **SPDX-License-Identifier:** Apache-2.0  
-**Copyright:** (c) 2024-2026 Vivek Umrao and DatabaseCreator contributors.
+**Copyright:** (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 
 ---
 
 ## 1. Testing Framework Overview
 
-DatabaseCreator includes a comprehensive, multi-layer automated test suite that runs in under 5 seconds with zero external dependencies (requiring only Bash $\ge$ 4.0).
+SpinDB includes a comprehensive, multi-layer automated test suite that runs in under 5 seconds with zero external dependencies (requiring only Bash $\ge$ 4.0).
 
 ```
 tests/
@@ -15,11 +15,15 @@ tests/
 ├── lint.sh                   # Static bash syntax validator and SPDX license auditor
 ├── smoke_test.sh             # End-to-end regression test suite
 ├── run_all_tests.sh          # Master test orchestrator running all suites
-└── unit/                     # Unit test suites
-    ├── test_cli.sh           # CLI routing, flag order independence, error exit codes
-    ├── test_config.sh        # Property resolution, password escaping, local override precedence
-    ├── test_dockerfiles.sh   # Valid FROM directives, port validation, 0777 permission check
-    └── test_engine.sh        # OS detection, package manager command generation, fallback
+├── unit/                     # Unit test suites
+│   ├── test_cli.sh           # CLI routing, flag order independence, error exit codes, pgvector
+│   ├── test_config.sh        # Property resolution, password escaping, local override precedence
+│   ├── test_dockerfiles.sh   # Valid FROM directives, port validation, 0777 permission check
+│   ├── test_engine.sh        # OS detection, package manager command generation, fallback
+│   ├── test_lifecycle.sh     # Container lifecycle subcommands (status, start, restart, etc.)
+│   └── test_security.sh      # CLR policies, idempotent DDL, localhost binding, resource limits
+└── integration/
+    └── enterprise_live_test.sh # Real-time live container launch, health, and lifecycle verification
 ```
 
 ---
@@ -27,7 +31,7 @@ tests/
 ## 2. Running Tests
 
 ### 2.1 Running the Full Master Suite
-To execute all static, unit, and integration tests with timing and summary reporting:
+To execute all static, unit, regression, and live production integration tests:
 
 ```bash
 make test
@@ -39,16 +43,17 @@ make test
 ```bash
 # Run static linting & license verification:
 make lint
-# or: ./tests/lint.sh
 
-# Run unit tests individually:
-./tests/unit/test_config.sh
-./tests/unit/test_engine.sh
+# Run unit tests:
 ./tests/unit/test_cli.sh
+./tests/unit/test_config.sh
 ./tests/unit/test_dockerfiles.sh
+./tests/unit/test_engine.sh
+./tests/unit/test_lifecycle.sh
+./tests/unit/test_security.sh
 
-# Run integration smoke tests:
-./tests/smoke_test.sh
+# Run live enterprise container test:
+./tests/integration/enterprise_live_test.sh
 ```
 
 ---

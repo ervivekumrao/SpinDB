@@ -1,24 +1,23 @@
 -- SPDX-License-Identifier: Apache-2.0
--- Copyright (c) 2024-2026 Vivek Umrao and DatabaseCreator contributors.
+-- Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 
-CREATE USER userid IDENTIFIED BY "password" QUOTA UNLIMITED ON DATA;
-CREATE TABLE userid.test (source int, cost int, part_number int);
-GRANT INSERT, SELECT, UPDATE, DELETE ON userid.test TO userid;
-GRANT CREATE SESSION TO userid;
-GRANT CREATE JOB TO userid;
-GRANT CREATE MATERIALIZED VIEW TO userid;
-GRANT CREATE PROCEDURE TO userid;
-GRANT CREATE SEQUENCE TO userid;
-GRANT CREATE SESSION TO userid;
-GRANT CREATE SYNONYM TO userid;
-GRANT CREATE TABLE TO userid;
-GRANT CREATE TRIGGER TO userid;
-GRANT CREATE TYPE TO userid;
-GRANT CREATE VIEW TO userid;
-GRANT CONNECT TO userid;
-GRANT CONSOLE_DEVELOPER TO userid;
-GRANT DWROLE TO userid;
-GRANT RESOURCE TO userid;
+DECLARE
+    u_count INTEGER;
+    t_count INTEGER;
+BEGIN
+    SELECT count(*) INTO u_count FROM all_users WHERE username = UPPER('userid');
+    IF u_count = 0 THEN
+        EXECUTE IMMEDIATE 'CREATE USER userid IDENTIFIED BY "password" QUOTA UNLIMITED ON DATA';
+        EXECUTE IMMEDIATE 'GRANT CREATE SESSION, CREATE TABLE, CONNECT, RESOURCE TO userid';
+    END IF;
+
+    SELECT count(*) INTO t_count FROM all_tables WHERE owner = UPPER('userid') AND table_name = 'TEST';
+    IF t_count = 0 THEN
+        EXECUTE IMMEDIATE 'CREATE TABLE userid.test (source int, cost int, part_number int)';
+        EXECUTE IMMEDIATE 'GRANT INSERT, SELECT, UPDATE, DELETE ON userid.test TO userid';
+    END IF;
+END;
+/
 
 BEGIN
     ORDS.ENABLE_SCHEMA(

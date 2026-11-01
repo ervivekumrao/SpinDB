@@ -1,44 +1,48 @@
-# Database Creator
+# SpinDB
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Engine](https://img.shields.io/badge/Engine-Podman_%7C_Docker-orange.svg)](#prerequisites--automatic-pre-flight-check)
+[![Author](https://img.shields.io/badge/Author-Vivek_Umrao-green.svg)](https://github.com/vivekumrao)
 
-A fast, unified developer CLI for spinning up containerized databases, in-memory caches, and lakehouse engines using
+> **SPDX-License-Identifier:** Apache-2.0  
+> **Copyright:** (c) 2024-2026 Vivek Umrao and SpinDB contributors.
+
+A fast, unified developer CLI (`spinctl`) for spinning up containerized databases, in-memory caches, and lakehouse engines using
 **Podman** (default, secure, rootless) with automatic fallback to **Docker**.
 
 ---
 
 ## Quickstart
 
-Run `CreateDB.sh` from the repository root:
+Run `bin/spinctl` from the repository root (or add `bin/` to your `$PATH`):
 
 ```bash
 # Spin up PostgreSQL on port 5432
-./CreateDB.sh -t postgres -p 5432 -n dev-pg
+./bin/spinctl -t postgres -p 5432 -n dev-pg
 
 # Spin up Redis cache on port 6379
-./CreateDB.sh -t redis -p 6379 -n dev-redis
+./bin/spinctl -t redis -p 6379 -n dev-redis
 
 # Spin up MySQL on port 3306 with persistent host storage
-./CreateDB.sh -t mysql -p 3306 -n dev-mysql -d /data/mysql
+./bin/spinctl -t mysql -p 3306 -n dev-mysql -d /data/mysql
 ```
 
 ---
 
 ## Prerequisites & Automatic Pre-Flight Check
 
-You do **not** need to manually check dependencies. When you run `./CreateDB.sh`, the script automatically checks your
+You do **not** need to manually check dependencies. When you run `./bin/spinctl`, the script automatically checks your
 host system:
 
 - **Default Engine:** Uses **Podman** (rootless and daemonless).
-- **Fallback Engine:** If Podman is missing, it notifies you and uses **Docker**.
+- **Fallback Engine:** If Podman is missing or unprivileged user namespaces are unavailable, it notifies you and seamlessly uses **Docker**.
 - **Missing Tools:** If any tool or container engine is missing, the script displays the **exact copy-paste install
   command** for your specific operating system (Ubuntu/Debian, Fedora/RHEL, Arch, Alpine, macOS, WSL).
 
 To run the pre-flight check without launching a database:
 
 ```bash
-./CreateDB.sh --preflight
+./bin/spinctl --preflight
 ```
 
 ---
@@ -50,6 +54,7 @@ To run the pre-flight check without launching a database:
 | `mysql`       | MySQL Community Server                                 | `3306`          | `/var/lib/mysql`            |
 | `mariadb`     | MariaDB Server                                         | `3306`          | `/var/lib/mysql`            |
 | `postgres`    | PostgreSQL                                             | `5432`          | `/var/lib/postgresql/data`  |
+| `pgvector`    | PostgreSQL with pgvector AI Vector Embeddings           | `5432`          | `/var/lib/postgresql/data`  |
 | `mssql`       | Microsoft SQL Server (2022)                            | `1433`          | `/var/opt/mssql`            |
 | `oracle`      | Oracle Autonomous Database Free                        | `1521`          | `/opt/oracle/oradata`       |
 | `db2`         | IBM DB2 Community Edition                              | `50000`         | `/database`                 |
@@ -65,16 +70,22 @@ To run the pre-flight check without launching a database:
 ## CLI Options Reference
 
 ```bash
-./CreateDB.sh [OPTIONS]
+./bin/spinctl [OPTIONS]
 ```
 
 | Option | Long Option               | Description                                              | Default                               |
 |:-------|:--------------------------|:---------------------------------------------------------|:--------------------------------------|
 | `-t`   | `--database-type`         | Database vendor name (e.g. `mysql`, `postgres`, `redis`) | `mysql`                               |
 | `-p`   | `--docker-port`, `--port` | Host port to map to the database                         | Engine default port                   |
+| `-b`   | `--bind`, `--host-ip`     | Host IP to bind container ports                          | `127.0.0.1` (Localhost security)     |
+|        | `--bind-all`              | Bind to `0.0.0.0` (all interfaces, for external network) | Disabled                              |
 | `-n`   | `--database-name`         | Container instance name                                  | `localdb`                             |
 | `-v`   | `--database-version`      | Container image tag/version                              | `latest` (or `2022-latest` for MSSQL) |
 | `-d`   | `--data-dir`, `--volume`  | Host directory or named volume for persistent storage    | Ephemeral container storage           |
+| `-m`   | `--memory`                | Memory limit (e.g. `512m`, `2g`)                         | Unbounded                             |
+|        | `--cpus`                  | CPU limit (e.g. `1.5`, `2.0`)                            | Unbounded                             |
+| `-f`   | `--force`                 | Force recreate container if name already exists          | False                                 |
+|        | `--rebuild`               | Force image build instead of fast runtime launch         | False                                 |
 | `-e`   | `--engine`                | Force container runtime (`podman` or `docker`)           | Auto-detected                         |
 | `-c`   | `--check`, `--preflight`  | Run environment checkup only                             | -                                     |
 | `-h`   | `--help`                  | Display usage instructions                               | -                                     |
@@ -86,17 +97,29 @@ To run the pre-flight check without launching a database:
 Control database containers without remembering engine-specific syntax:
 
 ```bash
-# View running database containers
-./CreateDB.sh status [name]
+# View all SpinDB containers (or specific container)
+./bin/spinctl status [name]
+
+# Start a stopped database container
+./bin/spinctl start <name>
+
+# Restart running container
+./bin/spinctl restart <name>
 
 # Follow container log output
-./CreateDB.sh logs [name]
+./bin/spinctl logs <name>
 
-# Stop container
-./CreateDB.sh stop [name]
+# Launch interactive database client shell directly inside container
+./bin/spinctl connect <name>
 
-# Remove container
-./CreateDB.sh rm [name]
+# Export connection strings & environment variables (.env format)
+./bin/spinctl env <name>
+
+# Stop container (or pass --all to stop all)
+./bin/spinctl stop [name|--all]
+
+# Remove container (or pass --all to remove all)
+./bin/spinctl rm [name|--all]
 ```
 
 ---
@@ -140,6 +163,18 @@ make clean        # Clean temporary build artifacts
 
 ---
 
+## Author & Maintainer
+
+- **Lead Developer:** **Vivek Umrao**
+- **Repository & Contributions:** SpinDB Contributors
+
+---
+
 ## License
 
-Licensed under the **Apache License, Version 2.0**. See [LICENSE](LICENSE) for details.
+```
+SPDX-License-Identifier: Apache-2.0
+Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
+```
+
+Licensed under the **Apache License, Version 2.0**. See the [LICENSE](LICENSE) file for complete terms and permissions.

@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-# Copyright (c) 2024-2026 Vivek Umrao and DatabaseCreator contributors.
+# Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 
 ARG DB_VERSION=latest
 FROM ghcr.io/nnnkkk7/snowflake-emulator:${DB_VERSION}
-LABEL maintainer="DatabaseCreator"
+LABEL maintainer="Vivek Umrao and SpinDB contributors"
 
 EXPOSE 8080
 

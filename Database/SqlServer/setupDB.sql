@@ -1,36 +1,39 @@
 -- SPDX-License-Identifier: Apache-2.0
--- Copyright (c) 2024-2026 Vivek Umrao and DatabaseCreator contributors.
+-- Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 
-sp_configure 'show advanced options', 1;
+IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'mssqldb')
+BEGIN
+    CREATE DATABASE mssqldb;
+END
 GO
-RECONFIGURE;
-GO
-sp_configure 'clr enabled', 1;
-GO
-RECONFIGURE;
-GO
-sp_configure 'clr strict security', 0;
-GO
-RECONFIGURE;
-GO
-CREATE DATABASE mssqldb
-ON
-(   Name = mssqldb_data,
-    FILENAME = '/var/opt/mssql/data/mssqldb.mdf',
-    SIZE = 1024MB,
-    FILEGROWTH = 64MB )
-LOG ON
-(   NAME = mssqldb_log,
-    FILENAME = '/var/opt/mssql/data/mssqldb_log.ldf',
-    SIZE = 64MB,
-    FILEGROWTH = 8MB ) ;
-GO
+
 USE mssqldb;
 GO
-create login userid with password = 'userpass', DEFAULT_DATABASE = mssqldb, check_policy = off;
+
+IF NOT EXISTS (SELECT name FROM sys.server_principals WHERE name = 'userid')
+BEGIN
+    CREATE LOGIN userid WITH PASSWORD = 'userpass', DEFAULT_DATABASE = mssqldb;
+END
 GO
-create user userid for login userid;
+
+IF NOT EXISTS (SELECT name FROM sys.database_principals WHERE name = 'userid')
+BEGIN
+    CREATE USER userid FOR LOGIN userid;
+END
 GO
-CREATE SCHEMA userdata AUTHORIZATION userid
-    CREATE TABLE test (source int, cost int, part_number int)
+
+IF NOT EXISTS (SELECT name FROM sys.schemas WHERE name = 'userdata')
+BEGIN
+    EXEC('CREATE SCHEMA userdata AUTHORIZATION userid');
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'userdata.test') AND type in (N'U'))
+BEGIN
+    CREATE TABLE userdata.test (
+        source int,
+        cost int,
+        part_number int
+    );
+END
 GO

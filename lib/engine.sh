@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright (c) 2024-2026 Vivek Umrao and DatabaseCreator contributors.
+# Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 # ==============================================================================
 # lib/engine.sh - Platform Detection, Container Engine Runtime & Pre-flight Diagnostics
 # ==============================================================================
@@ -155,27 +155,48 @@ run_preflight_check() {
   fi
 
   # Container Engines Checkup
+  local podman_operational=false
+  local docker_operational=false
+
   if command -v podman >/dev/null 2>&1; then
     podman_present=true
     podman_version="$(podman --version 2>/dev/null || echo 'available')"
+    if podman info >/dev/null 2>&1; then
+      podman_operational=true
+    fi
   fi
 
   if command -v docker >/dev/null 2>&1; then
     docker_present=true
     docker_version="$(docker --version 2>/dev/null || echo 'available')"
+    if docker info >/dev/null 2>&1; then
+      docker_operational=true
+    fi
   fi
 
   printf -- "-------------------------------------------------------------------------------\n"
   printf "  ${CLR_BOLD}Container Engines:${CLR_RESET}\n"
 
   if [[ "${podman_present}" == "true" ]]; then
-    printf "    * Podman (Primary):  ${CLR_GREEN}%s [ACTIVE]${CLR_RESET}\n" "${podman_version}"
+    if [[ "${podman_operational}" == "true" ]]; then
+      printf "    * Podman (Primary):  ${CLR_GREEN}%s [ACTIVE]${CLR_RESET}\n" "${podman_version}"
+    else
+      printf "    * Podman (Primary):  ${CLR_YELLOW}%s [NON-OPERATIONAL: Rootless subuid/subgid or socket unavailable]${CLR_RESET}\n" "${podman_version}"
+    fi
   else
     printf "    * Podman (Primary):  ${CLR_YELLOW}NOT INSTALLED (Recommended for rootless execution)${CLR_RESET}\n"
   fi
 
   if [[ "${docker_present}" == "true" ]]; then
-    printf "    * Docker (Fallback): ${CLR_GREEN}%s%s${CLR_RESET}\n" "${docker_version}" "$([[ "${podman_present}" == "false" ]] && echo " [ACTIVE AS FALLBACK]" || echo " [STANDBY]")"
+    if [[ "${docker_operational}" == "true" ]]; then
+      local docker_state="[STANDBY]"
+      if [[ "${podman_operational}" != "true" ]]; then
+        docker_state="[ACTIVE AS PRIMARY/FALLBACK]"
+      fi
+      printf "    * Docker (Engine):   ${CLR_GREEN}%s %s${CLR_RESET}\n" "${docker_version}" "${docker_state}"
+    else
+      printf "    * Docker (Engine):   ${CLR_YELLOW}%s [INSTALLED BUT DAEMON NOT RESPONDING]${CLR_RESET}\n" "${docker_version}"
+    fi
   else
     printf "    * Docker (Fallback): ${CLR_YELLOW}NOT INSTALLED${CLR_RESET}\n"
   fi
@@ -200,28 +221,39 @@ run_preflight_check() {
       printf "Run this command to install it for your %s system:\n\n" "${OS_NAME}"
       printf "  ${CLR_BOLD}${CLR_GREEN}%s${CLR_RESET}\n\n" "$(get_install_command "${CONTAINER_ENGINE}")"
       exit 1
+    elif ! "${CONTAINER_ENGINE}" info >/dev/null 2>&1; then
+      log_error "Engine '${CONTAINER_ENGINE}' is installed on PATH but its runtime daemon or namespace is not operational!"
+      exit 1
     fi
-  elif [[ "${podman_present}" == "true" ]]; then
+  elif [[ "${podman_operational}" == "true" ]]; then
     CONTAINER_ENGINE="podman"
-  elif [[ "${docker_present}" == "true" ]]; then
+  elif [[ "${docker_operational}" == "true" ]]; then
     CONTAINER_ENGINE="docker"
-    printf "\n"
-    printf "${CLR_BOLD}${CLR_YELLOW}+-----------------------------------------------------------------------------+${CLR_RESET}\n"
-    printf "${CLR_BOLD}${CLR_YELLOW}| [WARNING] Podman is not installed on this system.                           |${CLR_RESET}\n"
-    printf "${CLR_BOLD}${CLR_YELLOW}| Falling back to Docker engine.                                              |${CLR_RESET}\n"
-    printf "${CLR_BOLD}${CLR_YELLOW}| For enhanced security (rootless, daemonless), migrating to Podman is advised.|${CLR_RESET}\n"
-    printf "${CLR_BOLD}${CLR_YELLOW}+-----------------------------------------------------------------------------+${CLR_RESET}\n"
-    printf "To install Podman on your %s host, simply run:\n\n" "${OS_NAME}"
-    printf "  ${CLR_BOLD}${CLR_GREEN}%s${CLR_RESET}\n\n" "$(get_install_command 'podman')"
+    if [[ "${podman_present}" == "true" ]]; then
+      printf "\n"
+      printf "${CLR_BOLD}${CLR_YELLOW}+-----------------------------------------------------------------------------+${CLR_RESET}\n"
+      printf "${CLR_BOLD}${CLR_YELLOW}| [NOTICE] Podman is installed but its rootless namespace/socket is inactive. |${CLR_RESET}\n"
+      printf "${CLR_BOLD}${CLR_YELLOW}| Automatically utilizing operational Docker runtime.                         |${CLR_RESET}\n"
+      printf "${CLR_BOLD}${CLR_YELLOW}+-----------------------------------------------------------------------------+${CLR_RESET}\n"
+    else
+      printf "\n"
+      printf "${CLR_BOLD}${CLR_YELLOW}+-----------------------------------------------------------------------------+${CLR_RESET}\n"
+      printf "${CLR_BOLD}${CLR_YELLOW}| [WARNING] Podman is not installed on this system.                           |${CLR_RESET}\n"
+      printf "${CLR_BOLD}${CLR_YELLOW}| Falling back to Docker engine.                                              |${CLR_RESET}\n"
+      printf "${CLR_BOLD}${CLR_YELLOW}| For enhanced security (rootless, daemonless), migrating to Podman is advised.|${CLR_RESET}\n"
+      printf "${CLR_BOLD}${CLR_YELLOW}+-----------------------------------------------------------------------------+${CLR_RESET}\n"
+      printf "To install Podman on your %s host, simply run:\n\n" "${OS_NAME}"
+      printf "  ${CLR_BOLD}${CLR_GREEN}%s${CLR_RESET}\n\n" "$(get_install_command 'podman')"
+    fi
   else
     printf "\n"
     printf "${CLR_BOLD}${CLR_RED}+-----------------------------------------------------------------------------+${CLR_RESET}\n"
-    printf "${CLR_BOLD}${CLR_RED}| [ERROR] Neither 'podman' nor 'docker' is installed on your host!           |${CLR_RESET}\n"
-    printf "${CLR_BOLD}${CLR_RED}| DatabaseCreator requires a container engine to create database containers.  |${CLR_RESET}\n"
+    printf "${CLR_BOLD}${CLR_RED}| [ERROR] No operational container engine found on your host!                 |${CLR_RESET}\n"
+    printf "${CLR_BOLD}${CLR_RED}| Neither Podman nor Docker is running or accessible without root.            |${CLR_RESET}\n"
     printf "${CLR_BOLD}${CLR_RED}+-----------------------------------------------------------------------------+${CLR_RESET}\n"
-    printf "Please install Podman (recommended) on your %s machine:\n\n" "${OS_NAME}"
+    printf "Please ensure Docker service is started or install Podman on %s:\n\n" "${OS_NAME}"
     printf "  ${CLR_BOLD}${CLR_GREEN}%s${CLR_RESET}\n\n" "$(get_install_command 'podman')"
-    printf "Alternative: Install Docker if you prefer:\n"
+    printf "Alternative: Install/start Docker:\n"
     printf "  ${CLR_BOLD}%s${CLR_RESET}\n\n" "$(get_install_command 'docker')"
     exit 1
   fi

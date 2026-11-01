@@ -1,12 +1,44 @@
-# DatabaseCreator .dockerignore
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
+# ==============================================================================
+# SpinDB .dockerignore - Docker & Podman Build Context Exclusion
+# ==============================================================================
+
+# VCS and Configuration
 .git/
 .gitignore
+.dockerignore
+
+# IDE and Editors
 .idea/
 .vscode/
+*.iml
+.DS_Store
+
+# Agent and Skill metadata
+.agents/
+.gemini/
+skills/
+
+# Tests and Documentation
 tests/
 docs/
 *.md
 Makefile
-build.*
+LICENSE
+
+# Ephemeral and Build directories
+build/
+build.*/
 tmp/
+*.tmp
 *.log
+logs/
+
+# Sensitive Credential Files
+Database.properties.local
+config/Database.properties.local
+*.env
+secrets/
+*.pem
+*.key

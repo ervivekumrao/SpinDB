@@ -1,17 +1,17 @@
-# Architecture & Design Blueprint: DatabaseCreator
+# Architecture & Design Blueprint: SpinDB
 
 **SPDX-License-Identifier:** Apache-2.0  
-**Copyright:** (c) 2024-2026 Vivek Umrao and DatabaseCreator contributors.
+**Copyright:** (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 
 ---
 
 ## 1. Overview
 
-DatabaseCreator is a modular, multi-vendor container orchestrator designed to provision local development, integration testing, and CI/CD database instances with zero manual setup. It adopts a **Podman-first, rootless design** with seamless fallback to **Docker**, decoupling the CLI front-end from individual database engine implementations.
+SpinDB is a modular, multi-vendor container orchestrator designed to provision local development, integration testing, and CI/CD database instances with zero manual setup. It adopts a **Podman-first, rootless design** with seamless fallback to **Docker**, decoupling the CLI front-end from individual database engine implementations.
 
 ```mermaid
 flowchart TD
-    User([Developer / CI/CD Job]) --> CLI[bin/dbcreator / CreateDB.sh]
+    User([Developer / CI/CD Job]) --> CLI[bin/spinctl]
     
     subgraph Modular Subsystems [lib/ Core Modules]
         CLI --> Logger[lib/logger.sh<br/>ANSI & Logging]
@@ -42,9 +42,8 @@ flowchart TD
 
 ## 2. Component Subsystems
 
-### 2.1 CLI Frontend Layer (`bin/dbcreator` & `CreateDB.sh`)
-- **`bin/dbcreator`**: The primary executable adhering to POSIX standards. Uses robust, order-independent parameter parsing (`while [[ $# -gt 0 ]]`).
-- **`CreateDB.sh`**: Root-level wrapper delegating to `bin/dbcreator "$@"`. Ensures 100% backward compatibility for existing automation scripts, tutorials, and legacy callers.
+### 2.1 CLI Frontend Layer (`bin/spinctl`)
+- **`bin/spinctl`**: The primary executable adhering to POSIX standards. Uses robust, order-independent parameter parsing (`while [[ $# -gt 0 ]]`). Can be symlinked or added to `$PATH` as `spinctl`.
 
 ### 2.2 Container Engine & OS Diagnostics (`lib/engine.sh`)
 - **Host OS Detection**: Inspects `/etc/os-release` and kernel parameters, identifying OS families: `debian_like`, `rhel_like`, `arch_like`, `alpine`, `macos`, and `WSL2`.
@@ -65,27 +64,31 @@ flowchart TD
   2. Local environment override files (`Database.properties.local` or `config/database.env`)
   3. Version-controlled defaults ([Database.properties](file:///home/user/work/DatabaseCreator/Database.properties))
 
-### 2.4 Health Probing & Fail-Fast Subsystem (`lib/health.sh`)
-- **Non-Blocking Readiness Checks**: Replaces static, arbitrary delays (e.g. `sleep 60s`) with an iterative health inspection loop.
-- **Fail-Fast Crash Detection**: Continuously inspects `.State.Running`. If the container crashes or exits prematurely during startup (`exited`, `dead`), the loop aborts immediately and surfaces the trailing container logs, preventing wasteful 10-minute timeouts.
+### 2.4 Health Probing & Active TCP Socket Verification (`lib/health.sh`)
+- **Active Socket Handshake**: Combines container engine inspection (`.State.Running`, `.State.Health.Status`) with direct TCP port polling (`/dev/tcp/127.0.0.1/${port}`) on a 1-second interval, eliminating false-positive startup reports.
+- **Fail-Fast Crash Detection**: Continuously monitors container PID lifecycle. If the process crashes or enters `unhealthy`/`exited` state, logs are dumped immediately, preventing long timeouts.
 
-### 2.5 Lifecycle Controller (`lib/lifecycle.sh`)
+### 2.5 Lifecycle Controller & Native Client Routing (`lib/lifecycle.sh`)
 - Provides unified shorthand subcommands:
-  - `dbcreator status [name]`: Inspect running instances.
-  - `dbcreator logs [name]`: Stream container log output.
-  - `dbcreator stop [name]`: Gracefully terminate container process.
-  - `dbcreator rm [name]`: Cleanly tear down and remove container.
+  - `spinctl status [name]`: Inspect running instances, queried via standardized `app=spindb` OCI labels.
+  - `spinctl start <name>`: Start a stopped container.
+  - `spinctl restart <name>`: Gracefully restart a container.
+  - `spinctl stop [name|--all]`: Gracefully terminate container process(es).
+  - `spinctl logs <name>`: Stream container log output.
+  - `spinctl rm [name|--all]`: Cleanly tear down and remove container(s).
+  - `spinctl connect <name>`: Launch an interactive terminal directly into the container's native CLI (`psql`, `mysql`, `redis-cli`, `mongosh`, `clickhouse-client`, `sqlcmd`).
+  - `spinctl env <name>`: Output connection credentials and JDBC connection strings in `.env` format.
 
 ---
 
 ## 3. Storage Architecture & Persistent Volumes
 
-By default, container filesystems write to an ephemeral copy-on-write overlay. DatabaseCreator provides persistent storage binding via `-d / --data-dir`:
+By default, container filesystems write to an ephemeral copy-on-write overlay. SpinDB provides persistent storage binding via `-d / --data-dir`:
 
 | Engine | Internal Data Mount Path | Host Volume Recommendation |
 | :--- | :--- | :--- |
 | **MySQL / MariaDB** | `/var/lib/mysql` | Host directory or named volume |
-| **PostgreSQL** | `/var/lib/postgresql/data` | Host directory with user write permissions |
+| **PostgreSQL / pgvector** | `/var/lib/postgresql/data` | Host directory with user write permissions |
 | **Microsoft SQL Server** | `/var/opt/mssql` | Host directory |
 | **Oracle Database Free** | `/opt/oracle/oradata` | Fast NVMe / SSD mount |
 | **MongoDB** | `/data/db` | Host directory |
@@ -103,10 +106,15 @@ When running with **Podman**, the flag `:Z` is automatically appended to volume 
 ## 4. Security & Isolation Architecture
 
 1. **Rootless by Default**:
-   Podman maps the container's root user (`UID 0`) to an unprivileged subuid range on the host machine. If a container break occurs, the process has zero privileges on the host kernel.
-2. **Elimination of Superuser Privileges**:
-   The legacy `--privileged=true` flag has been stripped from all engine run commands.
-3. **Hardened File Permissions**:
-   All container scripts are created with `0755` (read/execute) and database SQL configuration files with `0644` (read-only for non-root).
-4. **Sandboxed Build Isolation**:
-   Temporary build directories are created in volatile memory using `mktemp -d` and are bound to an active POSIX `trap cleanup EXIT INT TERM`. Dangling build artifacts are never orphaned.
+   Podman maps the container's root user (`UID 0`) to an unprivileged subuid range on the host machine. If a container break occurs, the process has zero privileges on the host kernel. Automatic operational fallback to Docker occurs if rootless namespaces are unconfigured.
+2. **Localhost Network Isolation (127.0.0.1)**:
+   Container ports default to host binding `127.0.0.1` instead of `0.0.0.0`, protecting local databases from unauthorized external access over the local network.
+3. **No Plaintext Passwords in Image Layers**:
+   Credentials are provided at runtime via environment parameters rather than baked into Dockerfile layers or image metadata.
+4. **Elimination of Superuser Privileges**:
+   Universal `--privileged=true` is eliminated across all engines; targeted capabilities (`--cap-add SYS_ADMIN --device /dev/fuse`) are granted solely when required (e.g. Oracle ADB Free).
+5. **Hardened File Permissions & Idempotent DDL**:
+   All container scripts are created with `0755` and SQL files with `0644`. All DDL statements use `IF NOT EXISTS` guards to ensure safe volume re-attachment and restarts.
+6. **Deterministic Resource Management**:
+   Support for `--memory` and `--cpus` prevents noisy-neighbor resource exhaustion.
+

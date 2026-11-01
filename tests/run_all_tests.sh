@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright (c) 2024-2026 Vivek Umrao and DatabaseCreator contributors.
+# Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 # ==============================================================================
 # tests/run_all_tests.sh - Master Test Orchestrator & Execution Suite
 # ==============================================================================
@@ -20,10 +20,10 @@ CLR_GREEN="\033[32m"
 CLR_RED="\033[31m"
 
 printf "${CLR_BOLD}${CLR_CYAN}===============================================================================${CLR_RESET}\n"
-printf "${CLR_BOLD}${CLR_CYAN}               DATABASECREATOR COMPREHENSIVE TEST SUITE                       ${CLR_RESET}\n"
+printf "${CLR_BOLD}${CLR_CYAN}               SPINDB (SPINCTL) COMPREHENSIVE TEST SUITE                       ${CLR_RESET}\n"
 printf "${CLR_BOLD}${CLR_CYAN}===============================================================================${CLR_RESET}\n"
 
-chmod +x "${SCRIPT_DIR}"/*.sh "${SCRIPT_DIR}"/unit/*.sh
+chmod +x "${SCRIPT_DIR}"/*.sh "${SCRIPT_DIR}"/unit/*.sh "${SCRIPT_DIR}"/integration/*.sh 2>/dev/null || true
 
 # 1. Lint and Static Syntax
 if ! "${SCRIPT_DIR}/lint.sh"; then
@@ -37,10 +37,19 @@ for test_script in "${SCRIPT_DIR}"/unit/test_*.sh; do
   fi
 done
 
-# 3. Smoke / Integration Tests
+# 3. Smoke Tests
 if ! "${SCRIPT_DIR}/smoke_test.sh"; then
   ((TOTAL_FAILURES++))
 fi
+
+# 4. Enterprise Live Production Tests
+for test_script in "${SCRIPT_DIR}"/integration/*.sh; do
+  if [[ -f "${test_script}" ]]; then
+    if ! "${test_script}"; then
+      ((TOTAL_FAILURES++))
+    fi
+  fi
+done
 
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))

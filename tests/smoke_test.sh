@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Copyright (c) 2024-2026 Vivek Umrao and DatabaseCreator contributors.
+# Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 # ==============================================================================
 # tests/smoke_test.sh - Automated CLI Integration & Regression Test Suite
 # ==============================================================================
@@ -11,12 +11,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 echo "==> Test 1: CLI Help output"
-"${PROJECT_ROOT}/bin/dbcreator" --help >/dev/null
-"${PROJECT_ROOT}/CreateDB.sh" --help >/dev/null
+"${PROJECT_ROOT}/bin/spinctl" --help >/dev/null
 echo "[PASS] Test 1 passed."
 
 echo "==> Test 2: Preflight checkup"
-"${PROJECT_ROOT}/bin/dbcreator" --preflight >/dev/null
+"${PROJECT_ROOT}/bin/spinctl" --preflight >/dev/null
 echo "[PASS] Test 2 passed."
 
 echo "==> Test 3: Safe Property Extraction"
