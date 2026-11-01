@@ -28,6 +28,7 @@ test_help_advertises_all_lifecycle_subcommands() {
   assert_contains "${help_out}" "rm" "Help missing 'rm'"
   assert_contains "${help_out}" "connect" "Help missing 'connect'"
   assert_contains "${help_out}" "env" "Help missing 'env'"
+  assert_contains "${help_out}" "versions" "Help missing 'versions'"
 }
 
 test_status_execution() {

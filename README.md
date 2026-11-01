@@ -81,6 +81,7 @@ To run the pre-flight check without launching a database:
 |        | `--bind-all`              | Bind to `0.0.0.0` (all interfaces, for external network) | Disabled                              |
 | `-n`   | `--database-name`         | Container instance name                                  | `<engine>-<port>` (e.g. `mysql-3306`)|
 | `-v`   | `--database-version`      | Container image tag/version                              | `latest` (or `2022-latest` for MSSQL) |
+|        | `--versions`, `--list-versions` | List available database image versions for engine       | -                                     |
 | `-d`   | `--data-dir`, `--volume`  | Host directory or named volume for persistent storage    | Ephemeral container storage           |
 | `-m`   | `--memory`                | Memory limit (e.g. `512m`, `2g`)                         | Unbounded                             |
 |        | `--cpus`                  | CPU limit (e.g. `1.5`, `2.0`)                            | Unbounded                             |
@@ -120,6 +121,54 @@ Control database containers without remembering engine-specific syntax:
 
 # Remove container (or pass --all to remove all)
 ./bin/spinctl rm [name|--all]
+```
+
+---
+
+## Database Version Discovery & Multi-Variant Provisioning
+
+### 1. Discovering Available Database Image Versions
+SpinDB provides a unified version catalog across all 13 supported engines. It combines **locally downloaded container images**, a **curated offline-first catalog** of verified LTS and stable releases, and **TTL-governed registry discovery**:
+
+```bash
+# List all 13 supported database engines and their recommended versions:
+./bin/spinctl versions
+
+# Inspect complete version catalog & sub-versions for PostgreSQL:
+./bin/spinctl versions postgres
+
+# Filter for a specific sub-version (e.g. 16.1):
+./bin/spinctl versions postgres 16.1
+
+# Bypass the 24h cache and force-refresh tags from the registry:
+./bin/spinctl versions postgres --refresh
+
+# Offline-only mode (executes purely from local disk cache & curated catalog):
+./bin/spinctl versions postgres --offline
+```
+
+* **12–24h Cache TTL**: Remote version metadata is cached at `~/.cache/spindb/versions/<engine>.cache` for 24 hours (configurable via `SPINDB_CACHE_TTL` or `Database.properties`). Queries execute locally in < 5ms without unnecessary network calls.
+
+### 2. Spinning Multiple Variants of the Same Database Concurrently
+You can run multiple major and minor variants of the same database simultaneously. SpinDB automatically isolates host ports and assigns collision-free, descriptive container names in the format `<engine>-<version>-<port>`:
+
+```bash
+# Spin up PostgreSQL 14 (Port 5432) -> Container Name: postgres-14-5432
+./bin/spinctl -t postgres -v 14
+
+# Spin up PostgreSQL 15 (Auto-allocated Port 5433) -> Container Name: postgres-15-5433
+./bin/spinctl -t postgres -v 15
+
+# Spin up PostgreSQL 16.1 (Auto-allocated Port 5434) -> Container Name: postgres-16.1-5434
+./bin/spinctl -t postgres -v 16.1
+
+# Spin up PostgreSQL 17 (Auto-allocated Port 5435) -> Container Name: postgres-17-5435
+./bin/spinctl -t postgres -v 17
+```
+
+View all running variants side-by-side:
+```bash
+./bin/spinctl status
 ```
 
 ---

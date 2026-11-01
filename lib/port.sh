@@ -152,9 +152,15 @@ resolve_instance_name() {
   local engine="$1"
   local port="$2"
   local explicit_name="$3"
+  local version="${4:-}"
 
   if [[ -n "${explicit_name}" ]]; then
     echo "${explicit_name}"
+  elif [[ -n "${version}" && "${version,,}" != "latest" ]]; then
+    local clean_ver="${version//[\/:@ ]/-}"
+    clean_ver="${clean_ver##[-.]}"
+    clean_ver="${clean_ver%%[-.]}"
+    echo "$(normalize_engine_name "${engine}")-${clean_ver}-${port}"
   else
     echo "$(normalize_engine_name "${engine}")-${port}"
   fi

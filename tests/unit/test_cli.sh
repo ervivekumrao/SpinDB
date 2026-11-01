@@ -53,6 +53,7 @@ test_enterprise_flags_advertised() {
   assert_contains "${help_out}" "--cpus" "Missing --cpus"
   assert_contains "${help_out}" "--force" "Missing --force"
   assert_contains "${help_out}" "--rebuild" "Missing --rebuild"
+  assert_contains "${help_out}" "--versions" "Missing --versions"
 }
 
 run_test "Help flags exit 0" test_help_flags

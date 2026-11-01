@@ -8,6 +8,12 @@
 [[ -n "${_LIB_LIFECYCLE_LOADED:-}" ]] && return 0
 _LIB_LIFECYCLE_LOADED=1
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
+
+# shellcheck source=lib/versions.sh
+source "${PROJECT_ROOT}/lib/versions.sh"
+
 resolve_lifecycle_engine() {
   if [[ -n "${CONTAINER_ENGINE}" ]]; then
     return 0
@@ -29,6 +35,34 @@ resolve_lifecycle_engine() {
 handle_lifecycle_command() {
   local action="$1"
   local target="$2"
+
+  case "${action}" in
+    versions|list-versions|list_versions)
+      local engine="${target}"
+      local filter="${3:-}"
+      local refresh=false
+      local offline=false
+      for arg in "$@"; do
+        if [[ "${arg,,}" == "--refresh" || "${arg,,}" == "--no-cache" ]]; then
+          refresh=true
+        elif [[ "${arg,,}" == "--offline" ]]; then
+          offline=true
+        fi
+      done
+      if [[ "${engine,,}" == "--refresh" || "${engine,,}" == "--no-cache" || "${engine,,}" == "--offline" ]]; then
+        engine=""
+      fi
+      if [[ "${filter,,}" == "--refresh" || "${filter,,}" == "--no-cache" || "${filter,,}" == "--offline" ]]; then
+        filter=""
+      fi
+      if [[ -z "${engine}" || "${engine}" == "all" ]]; then
+        list_all_supported_engines_matrix "${refresh}" "${offline}"
+      else
+        list_engine_versions "${engine}" "${filter}" "${refresh}" "${offline}"
+      fi
+      exit 0
+      ;;
+  esac
 
   resolve_lifecycle_engine
 

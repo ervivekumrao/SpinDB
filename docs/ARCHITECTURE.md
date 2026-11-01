@@ -19,6 +19,7 @@ flowchart TD
         CLI --> Engine[lib/engine.sh<br/>OS & Runtime Selector]
         CLI --> Health[lib/health.sh<br/>Readiness Probing]
         CLI --> Lifecycle[lib/lifecycle.sh<br/>status, stop, logs, rm]
+        CLI --> Versions[lib/versions.sh<br/>TTL Cache & Versions]
     end
 
     subgraph Container Runtimes [Runtime Layer]
@@ -78,6 +79,12 @@ flowchart TD
   - `spinctl rm [name|--all]`: Cleanly tear down and remove container(s).
   - `spinctl connect <name>`: Launch an interactive terminal directly into the container's native CLI (`psql`, `mysql`, `redis-cli`, `mongosh`, `clickhouse-client`, `sqlcmd`).
   - `spinctl env <name>`: Output connection credentials and JDBC connection strings in `.env` format.
+  - `spinctl versions [vendor]`: Inspect available images, recommended LTS releases, and micro-variants.
+
+### 2.6 Version Discovery & TTL Caching Subsystem (`lib/versions.sh`)
+- **Multi-Variant Naming Scheme**: Produces collision-free instance names in `<engine>-<version>-<port>` format (e.g. `postgres-16.1-5432`) when `-v` is explicit, while preserving `<engine>-<port>` for default/latest runs.
+- **12–24h TTL Caching**: Caches remote registry tag metadata in `~/.cache/spindb/versions/<engine>.cache`. Queries execute in < 5ms without network calls during the TTL window.
+- **Offline & Air-Gapped Resilience**: Combines locally downloaded images (`docker/podman images`), a built-in curated catalog, and dynamic registry probes with 2-second timeout and offline graceful fallback.
 
 ---
 

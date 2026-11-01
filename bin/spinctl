@@ -15,8 +15,9 @@ source "${PROJECT_ROOT}/lib/logger.sh"
 source "${PROJECT_ROOT}/lib/config.sh"
 source "${PROJECT_ROOT}/lib/engine.sh"
 source "${PROJECT_ROOT}/lib/health.sh"
-source "${PROJECT_ROOT}/lib/lifecycle.sh"
 source "${PROJECT_ROOT}/lib/port.sh"
+source "${PROJECT_ROOT}/lib/versions.sh"
+source "${PROJECT_ROOT}/lib/lifecycle.sh"
 
 PROPERTIES_FILE="${PROJECT_ROOT}/Database.properties"
 
@@ -77,10 +78,11 @@ ${CLR_BOLD}OPTIONS:${CLR_RESET}
   --cpus <limit>                   Container CPU limit (e.g. 1.5, 2.0)
   -f, --force                      Force recreate container if name already exists
   --rebuild                        Force image build instead of fast runtime launch
+  --versions, --list-versions      List available database image versions & variants
   -c, --check, --preflight         Run host environment & library pre-flight checkup only
   -h, --help                       Show this help message
 
-${CLR_BOLD}CONTAINER LIFECYCLE SUBCOMMANDS:${CLR_RESET}
+${CLR_BOLD}CONTAINER LIFECYCLE & DISCOVERY SUBCOMMANDS:${CLR_RESET}
   spinctl status [name]            View running database containers
   spinctl start <name>             Start a stopped database container
   spinctl restart <name>           Restart a database container
@@ -89,10 +91,20 @@ ${CLR_BOLD}CONTAINER LIFECYCLE SUBCOMMANDS:${CLR_RESET}
   spinctl rm [name|--all]          Stop and remove database container(s)
   spinctl connect <name>           Launch interactive client shell inside container
   spinctl env <name>               Print connection strings and environment variables
+  spinctl versions [vendor] [filter] List available database image versions & variants
 
 ${CLR_BOLD}EXAMPLES:${CLR_RESET}
   # Spin up PostgreSQL 16 on port 5432:
   spinctl -t postgres -v 16 -p 5432 -n dev-pg
+
+  # Spin up PostgreSQL 16.1 on auto-allocated port:
+  spinctl -t postgres -v 16.1
+
+  # List available versions and variants for PostgreSQL:
+  spinctl versions postgres
+
+  # List all 13 supported database engines:
+  spinctl versions
 
   # Spin up pgvector AI vector database:
   spinctl -t pgvector -p 5432 -n dev-vector
@@ -106,11 +118,11 @@ EOF
 )"
 }
 
-# Check for lifecycle subcommands first
+# Check for lifecycle and discovery subcommands first
 if [[ "$#" -gt 0 ]]; then
   case "${1,,}" in
-    status|start|restart|stop|logs|rm|remove|connect|cli|env)
-      handle_lifecycle_command "${1,,}" "$2"
+    status|start|restart|stop|logs|rm|remove|connect|cli|env|versions|list-versions|list_versions)
+      handle_lifecycle_command "$@"
       ;;
   esac
 fi
@@ -175,6 +187,10 @@ while [[ $# -gt 0 ]]; do
     --rebuild)
       FORCE_REBUILD=true
       shift 1
+      ;;
+    --versions|--list-versions)
+      list_engine_versions "${CONTAINER_DB_TYPE}" "" false false
+      exit 0
       ;;
     -c|--check|--preflight)
       PREFLIGHT_ONLY=true
@@ -263,8 +279,11 @@ else
   fi
 fi
 
-# Resolve Option D port-linked container instance name (e.g. mysql-3306, mysql-3307)
-CONTAINER_DB_NAME="$(resolve_instance_name "${CONTAINER_DB_TYPE}" "${CONTAINER_DB_PORT}" "${CONTAINER_DB_NAME}")"
+# Resolve Option D port-linked container instance name (e.g. mysql-3306, postgres-16.1-5432)
+CONTAINER_DB_NAME="$(resolve_instance_name "${CONTAINER_DB_TYPE}" "${CONTAINER_DB_PORT}" "${CONTAINER_DB_NAME}" "${CONTAINER_DB_VERSION}")"
+
+# Normalize version tag for vendor-specific conventions (e.g. pgvector, cockroach, mssql)
+CONTAINER_DB_VERSION="$(normalize_engine_version "${CONTAINER_DB_TYPE}" "${CONTAINER_DB_VERSION}")"
 
 # Check container name collision
 if "${CONTAINER_ENGINE}" inspect "${CONTAINER_DB_NAME}" >/dev/null 2>&1; then

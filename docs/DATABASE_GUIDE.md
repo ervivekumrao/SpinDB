@@ -77,6 +77,17 @@ This guide provides technical specifications, connection URLs, CLI connection co
   ```bash
   PGPASSWORD='P@55w0rd' psql -h localhost -p 5432 -U userid -d pgdb
   ```
+- **Multi-Variant Spinning & Discovery:**
+  ```bash
+  # List all available PostgreSQL versions & subversions:
+  spinctl versions postgres
+
+  # Spin multiple versions concurrently:
+  spinctl -t postgres -v 16.1    # Name: postgres-16.1-5432 (Port 5432)
+  spinctl -t postgres -v 15      # Name: postgres-15-5433   (Port 5433)
+  spinctl -t postgres -v 14      # Name: postgres-14-5434   (Port 5434)
+  spinctl -t postgres -v 17      # Name: postgres-17-5435   (Port 5435)
+  ```
 - **Python (psycopg2):**
   ```python
   import psycopg2
