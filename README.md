@@ -76,10 +76,10 @@ To run the pre-flight check without launching a database:
 | Option | Long Option               | Description                                              | Default                               |
 |:-------|:--------------------------|:---------------------------------------------------------|:--------------------------------------|
 | `-t`   | `--database-type`         | Database vendor name (e.g. `mysql`, `postgres`, `redis`) | `mysql`                               |
-| `-p`   | `--docker-port`, `--port` | Host port to map to the database                         | Engine default port                   |
+| `-p`   | `--docker-port`, `--port` | Host port to map to the database                         | Auto-allocated free sequential port  |
 | `-b`   | `--bind`, `--host-ip`     | Host IP to bind container ports                          | `127.0.0.1` (Localhost security)     |
 |        | `--bind-all`              | Bind to `0.0.0.0` (all interfaces, for external network) | Disabled                              |
-| `-n`   | `--database-name`         | Container instance name                                  | `localdb`                             |
+| `-n`   | `--database-name`         | Container instance name                                  | `<engine>-<port>` (e.g. `mysql-3306`)|
 | `-v`   | `--database-version`      | Container image tag/version                              | `latest` (or `2022-latest` for MSSQL) |
 | `-d`   | `--data-dir`, `--volume`  | Host directory or named volume for persistent storage    | Ephemeral container storage           |
 | `-m`   | `--memory`                | Memory limit (e.g. `512m`, `2g`)                         | Unbounded                             |

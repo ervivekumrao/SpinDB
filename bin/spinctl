@@ -16,14 +16,17 @@ source "${PROJECT_ROOT}/lib/config.sh"
 source "${PROJECT_ROOT}/lib/engine.sh"
 source "${PROJECT_ROOT}/lib/health.sh"
 source "${PROJECT_ROOT}/lib/lifecycle.sh"
+source "${PROJECT_ROOT}/lib/port.sh"
 
 PROPERTIES_FILE="${PROJECT_ROOT}/Database.properties"
 
 # Default configuration
 CONTAINER_DB_TYPE="mysql"
 CONTAINER_DB_VERSION="latest"
-CONTAINER_DB_NAME="localdb"
+CONTAINER_DB_NAME=""
+EXPLICIT_NAME=false
 CONTAINER_DB_PORT=""
+EXPLICIT_PORT=false
 CONTAINER_IMAGE_NAME=""
 CONTAINER_REPO_NAME=""
 CONTAINER_ENGINE=""
@@ -62,8 +65,8 @@ ${CLR_BOLD}DATABASE & CACHE ENGINES (-t, --database-type):${CLR_RESET}
 ${CLR_BOLD}OPTIONS:${CLR_RESET}
   -t, --database-type <vendor>     Database engine vendor (Default: mysql)
   -v, --database-version <ver>     Base image version tag (Default: latest)
-  -n, --database-name <name>       Container name (Default: localdb)
-  -p, --docker-port, --port <port> Host port mapping to database service
+  -n, --database-name <name>       Container instance name (Default: <engine>-<port>, e.g. mysql-3306)
+  -p, --docker-port, --port <port> Host port mapping (Default: auto-allocated sequential port)
   -b, --bind, --host-ip <ip>       Host IP to bind (Default: 127.0.0.1 for local security)
   --bind-all                       Bind to 0.0.0.0 (all interfaces, for external LAN access)
   -i, --image-name <name>          Local container image tag name (Default: img)
@@ -125,10 +128,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     -n|--database-name)
       CONTAINER_DB_NAME="$2"
+      EXPLICIT_NAME=true
       shift 2
       ;;
     -p|--docker-port|--port)
       CONTAINER_DB_PORT="$2"
+      EXPLICIT_PORT=true
       shift 2
       ;;
     -b|--bind|--host-ip)
@@ -235,6 +240,32 @@ CONTAINER_LABELS=(
   "--label" "spindb.version=${CONTAINER_DB_VERSION}"
 )
 
+# ------------------------------------------------------------------------------
+# Port Resolution & Dynamic Instance Naming (Option D: Port-Linked)
+# ------------------------------------------------------------------------------
+DEFAULT_PORT="$(get_default_port_for_engine "${CONTAINER_DB_TYPE}")"
+
+if [[ "${EXPLICIT_PORT}" == "true" ]]; then
+  if is_port_in_use "${CONTAINER_DB_PORT}" "${HOST_BIND}"; then
+    show_port_conflict_error "${CONTAINER_DB_PORT}" "${CONTAINER_DB_TYPE}" "${HOST_BIND}"
+    exit 1
+  fi
+else
+  if is_port_in_use "${DEFAULT_PORT}" "${HOST_BIND}"; then
+    ALLOCATED_PORT="$(auto_allocate_port "${DEFAULT_PORT}" "${HOST_BIND}")"
+    if [[ -z "${ALLOCATED_PORT}" ]]; then
+      exit 1
+    fi
+    log_info "Default port ${DEFAULT_PORT} is in use. Automatically assigned next free port: ${CLR_BOLD}${ALLOCATED_PORT}${CLR_RESET}"
+    CONTAINER_DB_PORT="${ALLOCATED_PORT}"
+  else
+    CONTAINER_DB_PORT="${DEFAULT_PORT}"
+  fi
+fi
+
+# Resolve Option D port-linked container instance name (e.g. mysql-3306, mysql-3307)
+CONTAINER_DB_NAME="$(resolve_instance_name "${CONTAINER_DB_TYPE}" "${CONTAINER_DB_PORT}" "${CONTAINER_DB_NAME}")"
+
 # Check container name collision
 if "${CONTAINER_ENGINE}" inspect "${CONTAINER_DB_NAME}" >/dev/null 2>&1; then
   local_running="$("${CONTAINER_ENGINE}" inspect -f '{{.State.Running}}' "${CONTAINER_DB_NAME}" 2>/dev/null || echo "false")"
@@ -263,16 +294,8 @@ fi
 case "${CONTAINER_DB_TYPE,,}" in
 
   mysql)
-    DEFAULT_PORT=3306
-    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
     get_volume_param "/var/lib/mysql"
-    log_info "Launching MySQL on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
-
-    # Check port availability
-    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
-      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
-      exit 1
-    fi
+    log_info "Launching MySQL on ${HOST_BIND}:${CONTAINER_DB_PORT} (Instance: ${CONTAINER_DB_NAME})..."
 
     MYSQL_DB="$(get_property 'MYSQL_DBNAME')"
     MYSQL_USER="$(get_property 'MYSQL_USER_ID')"
@@ -301,15 +324,8 @@ case "${CONTAINER_DB_TYPE,,}" in
     ;;
 
   mariadb)
-    DEFAULT_PORT=3306
-    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
     get_volume_param "/var/lib/mysql"
-    log_info "Launching MariaDB on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
-
-    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
-      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
-      exit 1
-    fi
+    log_info "Launching MariaDB on ${HOST_BIND}:${CONTAINER_DB_PORT} (Instance: ${CONTAINER_DB_NAME})..."
 
     MARIA_DB="$(get_property 'MARIADB_DBNAME')"
     MARIA_USER="$(get_property 'MARIADB_USER_ID')"
@@ -338,15 +354,8 @@ case "${CONTAINER_DB_TYPE,,}" in
     ;;
 
   redis|valkey)
-    DEFAULT_PORT=6379
-    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
     get_volume_param "/data"
-    log_info "Launching Redis / Valkey Cache on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
-
-    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
-      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
-      exit 1
-    fi
+    log_info "Launching Redis / Valkey Cache on ${HOST_BIND}:${CONTAINER_DB_PORT} (Instance: ${CONTAINER_DB_NAME})..."
 
     REDIS_PASS="$(get_property 'REDIS_PASSWORD')"
     IMAGE_REF="redis:${CONTAINER_DB_VERSION}"
@@ -371,15 +380,8 @@ case "${CONTAINER_DB_TYPE,,}" in
     ;;
 
   clickhouse)
-    DEFAULT_PORT=8123
-    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
     get_volume_param "/var/lib/clickhouse"
-    log_info "Launching ClickHouse Analytics on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
-
-    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
-      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
-      exit 1
-    fi
+    log_info "Launching ClickHouse Analytics on ${HOST_BIND}:${CONTAINER_DB_PORT} (Instance: ${CONTAINER_DB_NAME})..."
 
     CH_DB="$(get_property 'CLICKHOUSE_DBNAME')"
     CH_USER="$(get_property 'CLICKHOUSE_USER_ID')"
@@ -407,15 +409,8 @@ case "${CONTAINER_DB_TYPE,,}" in
     ;;
 
   postgres|postgresql)
-    DEFAULT_PORT=5432
-    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
     get_volume_param "/var/lib/postgresql/data"
-    log_info "Launching PostgreSQL on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
-
-    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
-      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
-      exit 1
-    fi
+    log_info "Launching PostgreSQL on ${HOST_BIND}:${CONTAINER_DB_PORT} (Instance: ${CONTAINER_DB_NAME})..."
 
     PG_DB="$(get_property 'POSTGRES_DBNAME')"
     PG_USER="$(get_property 'POSTGRES_USER_ID')"
@@ -443,15 +438,8 @@ case "${CONTAINER_DB_TYPE,,}" in
     ;;
 
   pgvector)
-    DEFAULT_PORT=5432
-    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
     get_volume_param "/var/lib/postgresql/data"
-    log_info "Launching PostgreSQL with pgvector AI Engine on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
-
-    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
-      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
-      exit 1
-    fi
+    log_info "Launching PostgreSQL with pgvector AI Engine on ${HOST_BIND}:${CONTAINER_DB_PORT} (Instance: ${CONTAINER_DB_NAME})..."
 
     PG_DB="$(get_property 'POSTGRES_DBNAME')"
     PG_USER="$(get_property 'POSTGRES_USER_ID')"
@@ -482,15 +470,8 @@ case "${CONTAINER_DB_TYPE,,}" in
     ;;
 
   mssql|"sql server")
-    DEFAULT_PORT=1433
-    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
     get_volume_param "/var/opt/mssql"
-    log_info "Launching Microsoft SQL Server on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
-
-    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
-      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
-      exit 1
-    fi
+    log_info "Launching Microsoft SQL Server on ${HOST_BIND}:${CONTAINER_DB_PORT} (Instance: ${CONTAINER_DB_NAME})..."
 
     SA_PASS="$(get_property 'MSSQL_SA_PASSWORD')"
     if [[ "${CONTAINER_DB_VERSION}" == "latest" ]]; then
@@ -511,15 +492,8 @@ case "${CONTAINER_DB_TYPE,,}" in
     ;;
 
   mongodb|mongo)
-    DEFAULT_PORT=27017
-    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
     get_volume_param "/data/db"
-    log_info "Launching MongoDB on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
-
-    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
-      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
-      exit 1
-    fi
+    log_info "Launching MongoDB on ${HOST_BIND}:${CONTAINER_DB_PORT} (Instance: ${CONTAINER_DB_NAME})..."
 
     M_DB="$(get_property 'MONGODB_DBNAME')"
     M_USER="$(get_property 'MONGODB_USER_ID')"
@@ -539,15 +513,8 @@ case "${CONTAINER_DB_TYPE,,}" in
     ;;
 
   cockroach|cockroachdb)
-    DEFAULT_PORT=26257
-    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
     get_volume_param "/cockroach/cockroach-data"
-    log_info "Launching CockroachDB on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
-
-    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
-      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
-      exit 1
-    fi
+    log_info "Launching CockroachDB on ${HOST_BIND}:${CONTAINER_DB_PORT} (Instance: ${CONTAINER_DB_NAME})..."
 
     IMAGE_REF="cockroachdb/cockroach:${CONTAINER_DB_VERSION}"
 
@@ -562,15 +529,8 @@ case "${CONTAINER_DB_TYPE,,}" in
     ;;
 
   snowflake|snowflake-emulator)
-    DEFAULT_PORT=8080
-    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
     get_volume_param "/data"
-    log_info "Launching Snowflake Local Emulator on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
-
-    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
-      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
-      exit 1
-    fi
+    log_info "Launching Snowflake Local Emulator on ${HOST_BIND}:${CONTAINER_DB_PORT} (Instance: ${CONTAINER_DB_NAME})..."
 
     IMAGE_REF="ghcr.io/nnnkkk7/snowflake-emulator:${CONTAINER_DB_VERSION}"
 
@@ -584,15 +544,8 @@ case "${CONTAINER_DB_TYPE,,}" in
     ;;
 
   oracle)
-    DEFAULT_PORT=1521
-    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
     get_volume_param "/opt/oracle/oradata"
-    log_info "Launching Oracle Autonomous Database Free on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
-
-    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
-      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
-      exit 1
-    fi
+    log_info "Launching Oracle Autonomous Database Free on ${HOST_BIND}:${CONTAINER_DB_PORT} (Instance: ${CONTAINER_DB_NAME})..."
 
     ADMIN_PASS="$(get_property 'ORACLE_ADMIN_PASSWORD')"
     IMAGE_REF="ghcr.io/oracle/adb-free:${CONTAINER_DB_VERSION}"
@@ -610,15 +563,8 @@ case "${CONTAINER_DB_TYPE,,}" in
     ;;
 
   db2|ibmdb2)
-    DEFAULT_PORT=50000
-    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
     get_volume_param "/database"
-    log_info "Launching IBM DB2 on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
-
-    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
-      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
-      exit 1
-    fi
+    log_info "Launching IBM DB2 on ${HOST_BIND}:${CONTAINER_DB_PORT} (Instance: ${CONTAINER_DB_NAME})..."
 
     DB2_PASS="$(get_property 'DB2_DB2INST1_PASSWORD')"
     IMAGE_REF="icr.io/db2_community/db2:${CONTAINER_DB_VERSION}"
@@ -636,15 +582,8 @@ case "${CONTAINER_DB_TYPE,,}" in
     ;;
 
   databricks|spark-delta|delta-lake)
-    DEFAULT_PORT=10000
-    CONTAINER_DB_PORT="${CONTAINER_DB_PORT:-$DEFAULT_PORT}"
     get_volume_param "/opt/spark/data"
-    log_info "Launching Databricks Local Engine (Apache Spark + Delta Lake) on ${HOST_BIND}:${CONTAINER_DB_PORT}..."
-
-    if timeout 1 bash -c "</dev/tcp/${HOST_BIND}/${CONTAINER_DB_PORT}" 2>/dev/null; then
-      log_error "Host port ${CONTAINER_DB_PORT} on ${HOST_BIND} is already occupied!"
-      exit 1
-    fi
+    log_info "Launching Databricks Local Engine (Apache Spark + Delta Lake) on ${HOST_BIND}:${CONTAINER_DB_PORT} (Instance: ${CONTAINER_DB_NAME})..."
 
     IMAGE_REF="apache/spark:${CONTAINER_DB_VERSION:-3.5.3}"
 
