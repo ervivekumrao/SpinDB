@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 
-.PHONY: help preflight check lint test test-unit test-smoke status clean stop
+.PHONY: help preflight check lint test test-unit test-smoke test-concurrent status clean stop
 
 help:
 	@echo "SpinDB (spinctl) - Automation & Orchestration Tasks"
@@ -9,14 +9,15 @@ help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Quality & Testing Targets:"
-	@echo "  preflight    Run host environment and library pre-flight checkup"
-	@echo "  lint         Run bash syntax & license header validation"
-	@echo "  test         Run comprehensive test suite (lint + unit + smoke + live)"
-	@echo "  test-unit    Run modular unit tests only"
-	@echo "  test-smoke   Run regression smoke tests only"
-	@echo "  status       Show running database containers"
-	@echo "  stop         Stop all running database containers"
-	@echo "  clean        Safely prune dangling build cache"
+	@echo "  preflight       Run host environment and library pre-flight checkup"
+	@echo "  lint            Run bash syntax & license header validation"
+	@echo "  test            Run comprehensive test suite (lint + unit + smoke + live + concurrency)"
+	@echo "  test-unit       Run modular unit tests only"
+	@echo "  test-smoke      Run regression smoke tests only"
+	@echo "  test-concurrent Run real-time high-concurrency production stress tests"
+	@echo "  status          Show running database containers"
+	@echo "  stop            Stop all running database containers"
+	@echo "  clean           Safely prune dangling build cache"
 	@echo ""
 	@echo "Quick Engine Launchers:"
 	@echo "  mysql        Launch MySQL container"
@@ -46,6 +47,9 @@ test-unit:
 
 test-smoke:
 	@chmod +x tests/smoke_test.sh && ./tests/smoke_test.sh
+
+test-concurrent:
+	@chmod +x tests/integration/high_concurrency_production_test.sh && ./tests/integration/high_concurrency_production_test.sh
 
 status:
 	@./bin/spinctl status

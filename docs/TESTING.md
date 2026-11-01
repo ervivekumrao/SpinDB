@@ -23,7 +23,8 @@ tests/
 │   ├── test_lifecycle.sh     # Container lifecycle subcommands (status, start, restart, etc.)
 │   └── test_security.sh      # CLR policies, idempotent DDL, localhost binding, resource limits
 └── integration/
-    └── enterprise_live_test.sh # Real-time live container launch, health, and lifecycle verification
+    ├── enterprise_live_test.sh          # Real-time live container launch, health, and lifecycle verification
+    └── high_concurrency_production_test.sh # Real-time high-concurrency production stress, ACID load & race condition tests
 ```
 
 ---
@@ -31,7 +32,7 @@ tests/
 ## 2. Running Tests
 
 ### 2.1 Running the Full Master Suite
-To execute all static, unit, regression, and live production integration tests:
+To execute all static, unit, regression, live, and high-concurrency production integration tests:
 
 ```bash
 make test
@@ -39,7 +40,14 @@ make test
 ./tests/run_all_tests.sh
 ```
 
-### 2.2 Running Individual Test Suites
+### 2.2 Running High-Concurrency Production Stress Tests
+```bash
+make test-concurrent
+# or directly:
+./tests/integration/high_concurrency_production_test.sh
+```
+
+### 2.3 Running Individual Test Suites
 ```bash
 # Run static linting & license verification:
 make lint
@@ -54,6 +62,9 @@ make lint
 
 # Run live enterprise container test:
 ./tests/integration/enterprise_live_test.sh
+
+# Run high-concurrency production stress test:
+./tests/integration/high_concurrency_production_test.sh
 ```
 
 ---
