@@ -597,6 +597,193 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       overflow-x: auto;
     }
 
+    /* Multi-Tab SQL Console Strip */
+    .console-tabs-strip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background-color: var(--bg-primary);
+      padding: 6px 8px 0 8px;
+      border-top-left-radius: 6px;
+      border-top-right-radius: 6px;
+      border-bottom: 1px solid var(--border-color);
+      overflow-x: auto;
+    }
+    .console-tab {
+      background-color: var(--bg-secondary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+      border-bottom: none;
+      border-radius: 6px 6px 0 0;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .console-tab:hover {
+      background-color: var(--bg-tertiary);
+      color: #fff;
+    }
+    .console-tab.active {
+      background-color: var(--code-bg);
+      color: var(--accent-cyan);
+      border-color: var(--accent-blue);
+      border-bottom: 1px solid var(--code-bg);
+      margin-bottom: -1px;
+      font-weight: 600;
+    }
+    .console-tab-close {
+      font-size: 0.72rem;
+      opacity: 0.6;
+      cursor: pointer;
+      border-radius: 3px;
+      padding: 0 3px;
+      line-height: 1;
+    }
+    .console-tab-close:hover {
+      opacity: 1;
+      background: rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+    }
+    .btn-add-console {
+      background: transparent;
+      color: var(--accent-cyan);
+      border: 1px dashed var(--border-color);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      margin-bottom: 2px;
+    }
+    .btn-add-console:hover {
+      background-color: var(--bg-tertiary);
+      color: #fff;
+      border-color: var(--accent-cyan);
+    }
+
+    /* Grid Controls Bar (Filter, Rows selector, Pagination) */
+    .grid-controls-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      background-color: rgba(15, 23, 42, 0.65);
+      border-bottom: 1px solid var(--border-color);
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .grid-search-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .grid-search-input {
+      background-color: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 5px 10px 5px 28px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      outline: none;
+      width: 220px;
+      transition: border-color 0.15s ease;
+    }
+    .grid-search-input:focus {
+      border-color: var(--accent-cyan);
+    }
+    .grid-search-icon {
+      position: absolute;
+      left: 8px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    .grid-pagination {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+    .grid-page-btn {
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+    .grid-page-btn:hover:not(:disabled) {
+      background-color: #475569;
+    }
+    .grid-page-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    table.result-table th.sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+    table.result-table th.sortable:hover {
+      background-color: #334155;
+      color: #fff;
+    }
+    .sort-indicator {
+      margin-left: 4px;
+      font-size: 0.72rem;
+      color: var(--accent-yellow);
+    }
+
+    /* Modal wide variants */
+    .modal.modal-wide {
+      width: 720px;
+      max-width: 95%;
+    }
+    .modal-tabs {
+      display: flex;
+      gap: 6px;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 14px;
+      padding-bottom: 4px;
+      overflow-x: auto;
+    }
+    .modal-tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .modal-tab-btn.active {
+      background-color: var(--accent-blue);
+      color: #fff;
+    }
+    .code-snippet-box {
+      background-color: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: #e2e8f0;
+      white-space: pre-wrap;
+      max-height: 280px;
+      overflow: auto;
+      line-height: 1.5;
+    }
+
     /* Modal */
     .modal-backdrop {
       display: none;
@@ -759,10 +946,12 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       <section class="card">
         <div class="card-title">
           <span>JDBC Connection URL (Editable)</span>
-          <div style="display:flex; gap:8px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn-success" id="btn-reconnect" onclick="reconnectDatabase()" title="Test connection and reconnect to database using modified JDBC URL">🔌 Reconnect</button>
             <button onclick="resetJdbcUrl()" class="btn-secondary" title="Reset to default URL">↺ Reset</button>
             <button class="btn-secondary" onclick="copyJdbcUrl()" title="Copy JDBC URL to clipboard">📋 Copy URL</button>
+            <button class="btn-secondary" onclick="openSnippetsModal()" title="View connection code for Spring Boot, Python, Node, Go, CLI">📄 Code Snippets</button>
+            <button class="btn-secondary" onclick="downloadDatabaseDump()" title="Download database SQL dump">📦 SQL Dump</button>
           </div>
         </div>
         <div class="jdbc-container">
@@ -802,27 +991,37 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
         </div>
       </section>
 
-      <!-- SQL Query, Table Data & Structure Viewer -->
+      <!-- SQL Query, Table Data, Structure & DDL Viewer -->
       <section class="card query-section">
         <!-- View Switcher Tabs -->
         <div class="view-tabs-bar">
           <div class="view-tabs">
             <button class="view-tab active" id="tab-data" onclick="switchViewTab('data')">📊 Table Data</button>
             <button class="view-tab" id="tab-structure" onclick="switchViewTab('structure')">📐 Table Structure</button>
-            <button class="view-tab" id="tab-sql" onclick="switchViewTab('sql')">💻 SQL Query Console</button>
+            <button class="view-tab" id="tab-ddl" onclick="switchViewTab('ddl')">📜 Table DDL</button>
+            <button class="view-tab" id="tab-sql" onclick="switchViewTab('sql')" title="SQL Query Runner">💻 SQL Query Runner</button>
           </div>
-          <div id="table-context-info" style="font-size:0.82rem; color:var(--accent-cyan); font-family:var(--font-mono); display:none;">
-            Target Table: <b id="context-table-name" style="color:#fff;"></b>
+          <div id="table-context-info" style="font-size:0.82rem; color:var(--accent-cyan); font-family:var(--font-mono); display:none; align-items:center; gap:8px;">
+            <span>Target Table: <b id="context-table-name" style="color:#fff;"></b></span>
+            <button class="btn-secondary" id="btn-seed-data" onclick="openSeedModal()" style="padding:3px 10px; font-size:0.75rem; border-color:var(--accent-emerald); color:#34d399;" title="Generate synthetic test rows">🌱 Seed Mock Data</button>
           </div>
         </div>
 
         <!-- SQL Console Toolbar & Editor (visible in 'sql' and 'data' modes) -->
         <div id="sql-console-container">
+          <!-- Multi-Tab Console Strip -->
+          <div class="console-tabs-strip" id="console-tabs-strip">
+            <!-- Dynamically populated console tabs -->
+          </div>
+
           <div class="editor-toolbar">
             <div class="query-presets">
               <button class="btn-secondary" onclick="presetQuery('tables')">Show Tables</button>
               <button class="btn-secondary" onclick="presetQuery('version')">Select Version</button>
               <button class="btn-secondary" onclick="presetQuery('sample')">Sample SELECT</button>
+              <button class="btn-secondary" onclick="openHistoryModal()" title="View executed query history">⏱️ History</button>
+              <button class="btn-secondary" onclick="openSqlSnippetsModal()" title="Common SQL snippet templates">💡 Snippets</button>
+              <button class="btn-secondary" onclick="openScriptRunnerModal()" title="Execute multi-statement SQL script / DDL">📜 Run Script</button>
             </div>
             <div style="display:flex; gap:8px;">
               <button class="btn-secondary" onclick="exportResultsCsv()">📥 Export CSV</button>
@@ -839,6 +1038,31 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
             <span id="results-meta">Ready to inspect data or execute query</span>
             <span id="results-timer" style="font-family:var(--font-mono); font-size:0.75rem;"></span>
           </div>
+
+          <!-- Live Search & Pagination Bar -->
+          <div class="grid-controls-bar" id="grid-controls-bar">
+            <div class="grid-search-box">
+              <span class="grid-search-icon">🔍</span>
+              <input type="text" id="grid-search-input" class="grid-search-input" placeholder="Filter rows in real-time..." oninput="handleGridSearch()" />
+            </div>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--text-secondary);">
+                <span>Rows:</span>
+                <select id="grid-page-size" class="form-control" style="padding:3px 8px; font-size:0.75rem; width:auto;" onchange="changePageSize()">
+                  <option value="25">25</option>
+                  <option value="50" selected>50</option>
+                  <option value="100">100</option>
+                  <option value="all">All</option>
+                </select>
+              </div>
+              <div class="grid-pagination">
+                <button class="grid-page-btn" id="btn-page-prev" onclick="changeGridPage(-1)">◀ Prev</button>
+                <span id="grid-page-info">Page 1 of 1</span>
+                <button class="grid-page-btn" id="btn-page-next" onclick="changeGridPage(1)">Next ▶</button>
+              </div>
+            </div>
+          </div>
+
           <div class="results-table-wrap" id="results-table-wrap">
             <div class="empty-state" id="empty-state">Click any table in the Database Navigator tree on the left, or run a SQL query above.</div>
             <div id="error-box" class="error-banner" style="display:none; margin:16px;"></div>
@@ -871,6 +1095,19 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
               </thead>
               <tbody id="structure-tbody"></tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Table DDL View -->
+        <div class="results-container" id="ddl-results-container" style="display:none;">
+          <div class="results-header">
+            <span id="ddl-meta">Table DDL Specification</span>
+            <button class="btn-secondary" onclick="copyTableDdl()" style="padding:3px 10px; font-size:0.75rem;">📋 Copy DDL</button>
+          </div>
+          <div class="results-table-wrap" style="padding:16px;">
+            <div class="empty-state" id="ddl-empty-state">Select a table in the Database Navigator tree to view reconstructed DDL.</div>
+            <div id="ddl-error-box" class="error-banner" style="display:none; margin:16px;"></div>
+            <pre id="ddl-content" style="display:none; font-family:var(--font-mono); font-size:0.88rem; color:#e2e8f0; line-height:1.6; white-space:pre-wrap; margin:0;"></pre>
           </div>
         </div>
       </section>
@@ -920,6 +1157,116 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
     </div>
   </div>
 
+  <!-- Multi-Language Code Snippets Modal -->
+  <div class="modal-backdrop" id="snippets-modal">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <span>Multi-Language Connection Boilerplate</span>
+        <span style="cursor:pointer;" onclick="closeSnippetsModal()">✕</span>
+      </div>
+      <div class="modal-tabs">
+        <button class="modal-tab-btn active" id="btn-snip-spring" onclick="switchSnippetTab('spring')">Spring Boot</button>
+        <button class="modal-tab-btn" id="btn-snip-python" onclick="switchSnippetTab('python')">Python</button>
+        <button class="modal-tab-btn" id="btn-snip-node" onclick="switchSnippetTab('node')">Node.js</button>
+        <button class="modal-tab-btn" id="btn-snip-go" onclick="switchSnippetTab('go')">Go</button>
+        <button class="modal-tab-btn" id="btn-snip-cli" onclick="switchSnippetTab('cli')">CLI & Docker</button>
+      </div>
+      <div style="position:relative;">
+        <pre class="code-snippet-box" id="snippet-code-box"></pre>
+        <button class="btn-secondary" onclick="copySnippetCode()" style="position:absolute; top:8px; right:8px; font-size:0.75rem; padding:4px 10px;">📋 Copy</button>
+      </div>
+      <div class="modal-footer" style="margin-top:14px;">
+        <button class="btn-secondary" onclick="closeSnippetsModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Query History Modal -->
+  <div class="modal-backdrop" id="history-modal">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <span>Executed Query History</span>
+        <span style="cursor:pointer;" onclick="closeHistoryModal()">✕</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <span style="font-size:0.8rem; color:var(--text-secondary);">Click any query below to load it into the active console tab.</span>
+        <button class="btn-secondary" onclick="clearQueryHistory()" style="font-size:0.75rem; padding:3px 8px;">🗑️ Clear History</button>
+      </div>
+      <div id="history-list" style="max-height:360px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+      <div class="modal-footer" style="margin-top:14px;">
+        <button class="btn-secondary" onclick="closeHistoryModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SQL Snippets Modal -->
+  <div class="modal-backdrop" id="sql-snippets-modal">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <span>SQL Snippet Library</span>
+        <span style="cursor:pointer;" onclick="closeSqlSnippetsModal()">✕</span>
+      </div>
+      <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:12px;">Insert pre-built SQL query templates into your current console tab:</div>
+      <div id="snippets-library-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:10px; max-height:380px; overflow-y:auto;">
+        <!-- Populated via JS -->
+      </div>
+      <div class="modal-footer" style="margin-top:14px;">
+        <button class="btn-secondary" onclick="closeSqlSnippetsModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Seed Mock Data Modal -->
+  <div class="modal-backdrop" id="seed-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span>🌱 Seed Synthetic Mock Data</span>
+        <span style="cursor:pointer;" onclick="closeSeedModal()">✕</span>
+      </div>
+      <div style="margin-bottom:14px; font-size:0.85rem; color:var(--text-secondary);">
+        Target Table: <b id="seed-target-table" style="color:var(--accent-cyan); font-family:var(--font-mono);"></b>
+      </div>
+      <div class="form-group">
+        <label>Number of Records to Insert</label>
+        <select id="seed-count-select" class="form-control">
+          <option value="10" selected>10 rows (Fast test)</option>
+          <option value="25">25 rows</option>
+          <option value="50">50 rows (Standard benchmark)</option>
+          <option value="100">100 rows</option>
+        </select>
+      </div>
+      <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:14px; line-height:1.4;">
+        SpinDB inspects column names, types, and primary keys to insert realistic names, emails, timestamps, and numbers while preserving sequences.
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeSeedModal()">Cancel</button>
+        <button class="btn-success" id="btn-seed-submit" onclick="submitSeedMockData()">🌱 Insert Mock Records</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Multi-Statement SQL Script Runner Modal -->
+  <div class="modal-backdrop" id="script-runner-modal">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <span>Execute Multi-Statement SQL Script</span>
+        <span style="cursor:pointer;" onclick="closeScriptRunnerModal()">✕</span>
+      </div>
+      <div style="margin-bottom:8px; font-size:0.8rem; color:var(--text-secondary);">
+        Execute complete schema migration scripts, multi-statement DDL, or batch SQL statements against <b id="script-target-container" style="color:#fff;"></b>.
+      </div>
+      <textarea id="script-runner-text" class="sql-editor" style="height:220px;" placeholder="Paste multi-statement SQL script here... (e.g. CREATE TABLE ..., INSERT INTO ...;)"></textarea>
+      <div id="script-runner-output" style="display:none; margin-top:10px; max-height:120px; overflow-y:auto; padding:10px; border-radius:6px; font-family:var(--font-mono); font-size:0.8rem;"></div>
+      <div class="modal-footer" style="margin-top:14px; justify-content:space-between;">
+        <span id="script-runner-status" style="font-size:0.8rem; color:var(--text-secondary); font-family:var(--font-mono);"></span>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-secondary" onclick="closeScriptRunnerModal()">Close</button>
+          <button class="btn-success" id="btn-script-execute" onclick="submitRunScript()">▶ Execute Script</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div id="toast">Notification</div>
 
@@ -928,7 +1275,7 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       containers: [],
       selectedContainer: null,
       selectedTable: null, // { container, schema, table }
-      activeTab: "data", // "data", "structure", "sql"
+      activeTab: "data", // "data", "structure", "ddl", "sql"
       drivers: {},
       rawPassword: "",
       showPassword: false,
@@ -937,7 +1284,19 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       connectedDbs: {}, // containerName -> boolean
       treeSchemas: {}, // containerName -> tables array
       treeExpanded: {}, // "c:name" or "s:cName:sName" -> boolean
-      allExpanded: false
+      allExpanded: false,
+      consoles: [
+        { id: 1, name: "Console 1", query: "", result: null, timeMs: null, error: null }
+      ],
+      activeConsoleId: 1,
+      nextConsoleId: 2,
+      gridData: { columns: [], rows: [] },
+      gridSort: { colIndex: -1, direction: "asc" },
+      gridSearchQuery: "",
+      gridPage: 1,
+      gridPageSize: 50,
+      activeDdl: "",
+      currentSnippetLang: "spring"
     };
 
     function initApp() {
@@ -955,6 +1314,7 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
         }
         renderTree();
       }
+      renderConsoleTabs();
       setupKeybindings();
       setupJdbcInputListener();
 
@@ -1287,11 +1647,13 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       const ctxInfo = document.getElementById("table-context-info");
       const ctxName = document.getElementById("context-table-name");
       if (ctxName) ctxName.textContent = `${schema}.${table}`;
-      if (ctxInfo) ctxInfo.style.display = "block";
+      if (ctxInfo) ctxInfo.style.display = "flex";
 
       // Render view based on active tab
       if (state.activeTab === "structure") {
         loadTableStructure(c, schema, table);
+      } else if (state.activeTab === "ddl") {
+        loadTableDdl(c, schema, table);
       } else if (state.activeTab === "data") {
         loadTableData(c, schema, table);
       } else {
@@ -1310,7 +1672,7 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       state.activeTab = tab;
 
       // Update tab buttons
-      ["data", "structure", "sql"].forEach(t => {
+      ["data", "structure", "ddl", "sql"].forEach(t => {
         const btn = document.getElementById(`tab-${t}`);
         if (btn) {
           if (t === tab) btn.classList.add("active");
@@ -1321,19 +1683,31 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       const sqlBox = document.getElementById("sql-console-container");
       const dataBox = document.getElementById("data-results-container");
       const structBox = document.getElementById("structure-results-container");
+      const ddlBox = document.getElementById("ddl-results-container");
 
       if (tab === "structure") {
         if (sqlBox) sqlBox.style.display = "none";
         if (dataBox) dataBox.style.display = "none";
         if (structBox) structBox.style.display = "flex";
+        if (ddlBox) ddlBox.style.display = "none";
 
         if (state.selectedTable) {
           loadTableStructure(state.selectedTable.container, state.selectedTable.schema, state.selectedTable.table);
+        }
+      } else if (tab === "ddl") {
+        if (sqlBox) sqlBox.style.display = "none";
+        if (dataBox) dataBox.style.display = "none";
+        if (structBox) structBox.style.display = "none";
+        if (ddlBox) ddlBox.style.display = "flex";
+
+        if (state.selectedTable) {
+          loadTableDdl(state.selectedTable.container, state.selectedTable.schema, state.selectedTable.table);
         }
       } else if (tab === "data") {
         if (sqlBox) sqlBox.style.display = "block";
         if (dataBox) dataBox.style.display = "flex";
         if (structBox) structBox.style.display = "none";
+        if (ddlBox) ddlBox.style.display = "none";
 
         if (state.selectedTable) {
           loadTableData(state.selectedTable.container, state.selectedTable.schema, state.selectedTable.table);
@@ -1342,7 +1716,54 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
         if (sqlBox) sqlBox.style.display = "block";
         if (dataBox) dataBox.style.display = "flex";
         if (structBox) structBox.style.display = "none";
+        if (ddlBox) ddlBox.style.display = "none";
       }
+    }
+
+    async function loadTableDdl(c, schema, table) {
+      const meta = document.getElementById("ddl-meta");
+      const empty = document.getElementById("ddl-empty-state");
+      const errorBox = document.getElementById("ddl-error-box");
+      const pre = document.getElementById("ddl-content");
+
+      if (meta) meta.textContent = `DDL Specification: ${schema}.${table}`;
+      if (empty) {
+        empty.textContent = "Reconstructing CREATE TABLE & Index DDL...";
+        empty.style.display = "flex";
+      }
+      if (errorBox) errorBox.style.display = "none";
+      if (pre) pre.style.display = "none";
+
+      try {
+        const res = await fetch(`/api/table-ddl?container=${encodeURIComponent(c.name)}&engine=${encodeURIComponent(c.engine)}&schema=${encodeURIComponent(schema)}&table=${encodeURIComponent(table)}`);
+        const data = await res.json();
+        if (data.status !== "ok") throw new Error(data.message || "Failed to generate DDL");
+
+        state.activeDdl = data.ddl || "-- No DDL generated";
+        if (pre) {
+          pre.textContent = state.activeDdl;
+          pre.style.display = "block";
+        }
+        if (empty) empty.style.display = "none";
+      } catch (err) {
+        if (empty) empty.style.display = "none";
+        if (errorBox) {
+          errorBox.textContent = `Error loading DDL: ${err.message}`;
+          errorBox.style.display = "block";
+        }
+      }
+    }
+
+    function copyTableDdl() {
+      if (!state.activeDdl) {
+        showToast("No DDL available to copy.", true);
+        return;
+      }
+      navigator.clipboard.writeText(state.activeDdl).then(() => {
+        showToast("Table DDL copied to clipboard!");
+      }).catch(() => {
+        showToast("Failed to copy to clipboard.", true);
+      });
     }
 
     async function loadTableStructure(c, schema, table) {
@@ -1740,6 +2161,250 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       showToast("Starting driver .JAR browser download...");
     }
 
+    /* Multi-Tab SQL Console */
+    function renderConsoleTabs() {
+      const strip = document.getElementById("console-tabs-strip");
+      if (!strip) return;
+      strip.innerHTML = "";
+
+      state.consoles.forEach(c => {
+        const tab = document.createElement("div");
+        tab.className = "console-tab" + (c.id === state.activeConsoleId ? " active" : "");
+        tab.onclick = () => switchConsoleTab(c.id);
+
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = `💻 ${c.name}`;
+        tab.appendChild(nameSpan);
+
+        if (state.consoles.length > 1) {
+          const closeSpan = document.createElement("span");
+          closeSpan.className = "console-tab-close";
+          closeSpan.textContent = "✕";
+          closeSpan.title = "Close tab";
+          closeSpan.onclick = (e) => {
+            e.stopPropagation();
+            closeConsoleTab(c.id);
+          };
+          tab.appendChild(closeSpan);
+        }
+        strip.appendChild(tab);
+      });
+
+      const addBtn = document.createElement("button");
+      addBtn.className = "btn-add-console";
+      addBtn.textContent = "+ New Tab";
+      addBtn.onclick = addNewConsoleTab;
+      strip.appendChild(addBtn);
+    }
+
+    function switchConsoleTab(id) {
+      const current = state.consoles.find(c => c.id === state.activeConsoleId);
+      const editor = document.getElementById("sql-editor");
+      if (current && editor) {
+        current.query = editor.value;
+      }
+
+      state.activeConsoleId = id;
+      const target = state.consoles.find(c => c.id === id);
+      if (target && editor) {
+        editor.value = target.query;
+        if (target.result) {
+          state.gridData = { columns: target.result.columns, rows: target.result.rows };
+          state.gridPage = 1;
+          renderFilteredGrid();
+          const meta = document.getElementById("results-meta");
+          const timer = document.getElementById("results-timer");
+          if (meta) meta.textContent = `Returned ${target.result.rowCount} row${target.result.rowCount === 1 ? '' : 's'}`;
+          if (timer) timer.textContent = `⏱ ${target.timeMs} ms`;
+          const emptyState = document.getElementById("empty-state");
+          if (emptyState) emptyState.style.display = "none";
+        } else if (target.error) {
+          const errorBox = document.getElementById("error-box");
+          const resultTable = document.getElementById("result-table");
+          const emptyState = document.getElementById("empty-state");
+          const meta = document.getElementById("results-meta");
+          if (meta) meta.textContent = "Query execution error";
+          if (emptyState) emptyState.style.display = "none";
+          if (resultTable) resultTable.style.display = "none";
+          if (errorBox) {
+            errorBox.textContent = target.error;
+            errorBox.style.display = "block";
+          }
+        } else {
+          clearEditorStateUI();
+        }
+      }
+      renderConsoleTabs();
+    }
+
+    function addNewConsoleTab() {
+      const id = state.nextConsoleId++;
+      const newTab = {
+        id: id,
+        name: `Console ${id}`,
+        query: state.selectedTable
+          ? `SELECT * FROM ${(state.selectedTable.schema && state.selectedTable.schema !== 'default' && state.selectedTable.schema !== 'public') ? state.selectedTable.schema + '.' : ''}${state.selectedTable.table} LIMIT 50;`
+          : "SELECT 1;",
+        result: null,
+        timeMs: null,
+        error: null
+      };
+      state.consoles.push(newTab);
+      switchConsoleTab(id);
+    }
+
+    function closeConsoleTab(id) {
+      if (state.consoles.length <= 1) return;
+      const idx = state.consoles.findIndex(c => c.id === id);
+      state.consoles = state.consoles.filter(c => c.id !== id);
+      if (state.activeConsoleId === id) {
+        const nextActive = state.consoles[Math.max(0, idx - 1)];
+        switchConsoleTab(nextActive.id);
+      } else {
+        renderConsoleTabs();
+      }
+    }
+
+    function clearEditorStateUI() {
+      const resultTable = document.getElementById("result-table");
+      if (resultTable) resultTable.style.display = "none";
+      const emptyState = document.getElementById("empty-state");
+      if (emptyState) emptyState.style.display = "flex";
+      const errorBox = document.getElementById("error-box");
+      if (errorBox) errorBox.style.display = "none";
+      const meta = document.getElementById("results-meta");
+      if (meta) meta.textContent = "Ready to inspect data or execute query";
+      const timer = document.getElementById("results-timer");
+      if (timer) timer.textContent = "";
+    }
+
+    /* Grid Sorting, Live Searching & Pagination */
+    function handleGridSearch() {
+      const input = document.getElementById("grid-search-input");
+      state.gridSearchQuery = (input ? input.value : "").trim().toLowerCase();
+      state.gridPage = 1;
+      renderFilteredGrid();
+    }
+
+    function changePageSize() {
+      const sel = document.getElementById("grid-page-size");
+      const val = sel ? sel.value : "50";
+      state.gridPageSize = val === "all" ? 999999 : parseInt(val, 10);
+      state.gridPage = 1;
+      renderFilteredGrid();
+    }
+
+    function changeGridPage(delta) {
+      state.gridPage += delta;
+      renderFilteredGrid();
+    }
+
+    function sortGridByColumn(colIndex) {
+      if (state.gridSort.colIndex === colIndex) {
+        state.gridSort.direction = state.gridSort.direction === "asc" ? "desc" : "asc";
+      } else {
+        state.gridSort.colIndex = colIndex;
+        state.gridSort.direction = "asc";
+      }
+      renderFilteredGrid();
+    }
+
+    function getFilteredAndSortedRows() {
+      let rows = [...(state.gridData.rows || [])];
+
+      // 1. Text Search Filter across all columns
+      if (state.gridSearchQuery) {
+        rows = rows.filter(r =>
+          r.some(val => val !== null && val !== undefined && String(val).toLowerCase().includes(state.gridSearchQuery))
+        );
+      }
+
+      // 2. Column Sorting
+      if (state.gridSort.colIndex >= 0) {
+        const idx = state.gridSort.colIndex;
+        const dir = state.gridSort.direction === "asc" ? 1 : -1;
+        rows.sort((a, b) => {
+          const valA = (a[idx] !== null && a[idx] !== undefined) ? a[idx] : "";
+          const valB = (b[idx] !== null && b[idx] !== undefined) ? b[idx] : "";
+          const numA = Number(valA);
+          const numB = Number(valB);
+          if (!isNaN(numA) && !isNaN(numB) && valA !== "" && valB !== "") {
+            return (numA - numB) * dir;
+          }
+          return String(valA).localeCompare(String(valB)) * dir;
+        });
+      }
+
+      return rows;
+    }
+
+    function renderFilteredGrid() {
+      const thead = document.getElementById("result-thead");
+      const tbody = document.getElementById("result-tbody");
+      const table = document.getElementById("result-table");
+      const pageInfo = document.getElementById("grid-page-info");
+      const prevBtn = document.getElementById("btn-page-prev");
+      const nextBtn = document.getElementById("btn-page-next");
+      if (!thead || !tbody || !table) return;
+
+      const columns = state.gridData.columns || [];
+      const allFiltered = getFilteredAndSortedRows();
+      const totalRows = allFiltered.length;
+      const pageSize = state.gridPageSize || 50;
+      const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+
+      if (state.gridPage > totalPages) state.gridPage = totalPages;
+      if (state.gridPage < 1) state.gridPage = 1;
+
+      const startIdx = (state.gridPage - 1) * pageSize;
+      const pageRows = allFiltered.slice(startIdx, startIdx + pageSize);
+
+      if (pageInfo) pageInfo.textContent = `Page ${state.gridPage} of ${totalPages} (${totalRows} row${totalRows === 1 ? '' : 's'})`;
+      if (prevBtn) prevBtn.disabled = state.gridPage <= 1;
+      if (nextBtn) nextBtn.disabled = state.gridPage >= totalPages;
+
+      // Render Header
+      thead.innerHTML = "";
+      const trHead = document.createElement("tr");
+      const thIdx = document.createElement("th");
+      thIdx.textContent = "#";
+      thIdx.style.width = "40px";
+      trHead.appendChild(thIdx);
+
+      columns.forEach((col, i) => {
+        const th = document.createElement("th");
+        th.className = "sortable";
+        th.onclick = () => sortGridByColumn(i);
+
+        let indicator = "";
+        if (state.gridSort.colIndex === i) {
+          indicator = state.gridSort.direction === "asc" ? " ▲" : " ▼";
+        }
+        th.innerHTML = `${col}<span class="sort-indicator">${indicator}</span>`;
+        trHead.appendChild(th);
+      });
+      thead.appendChild(trHead);
+
+      // Render Body
+      tbody.innerHTML = "";
+      pageRows.forEach((row, i) => {
+        const tr = document.createElement("tr");
+        const tdIdx = document.createElement("td");
+        tdIdx.textContent = startIdx + i + 1;
+        tdIdx.style.color = "var(--text-muted)";
+        tr.appendChild(tdIdx);
+
+        row.forEach(val => {
+          const td = document.createElement("td");
+          td.textContent = (val === null || val === undefined) ? "NULL" : val;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+
+      table.style.display = "table";
+    }
+
     async function runQuery() {
       if (!state.selectedContainer) {
         showToast("Please select a running database first.", true);
@@ -1752,6 +2417,10 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
         showToast("Query cannot be empty.", true);
         return;
       }
+
+      // Sync active console query
+      const currentTab = state.consoles.find(c => c.id === state.activeConsoleId);
+      if (currentTab) currentTab.query = query;
 
       const errorBox = document.getElementById("error-box");
       const resultTable = document.getElementById("result-table");
@@ -1778,6 +2447,11 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
         state.lastQueryResult = data;
 
         if (data.status === "error") {
+          saveQueryToHistory(query, 0, 0, "error");
+          if (currentTab) {
+            currentTab.error = data.message;
+            currentTab.result = null;
+          }
           if (meta) meta.textContent = "Query execution error";
           if (timer) timer.textContent = "";
           if (emptyState) emptyState.style.display = "none";
@@ -1789,13 +2463,21 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
           return;
         }
 
-        // Render table
+        saveQueryToHistory(query, data.rowCount, data.executionTimeMs, "ok");
+        if (currentTab) {
+          currentTab.result = data;
+          currentTab.timeMs = data.executionTimeMs;
+          currentTab.error = null;
+        }
+
         if (meta) meta.textContent = `Success: Returned ${data.rowCount} row${data.rowCount === 1 ? '' : 's'}`;
         if (timer) timer.textContent = `⏱ ${data.executionTimeMs} ms`;
         if (emptyState) emptyState.style.display = "none";
         if (errorBox) errorBox.style.display = "none";
 
-        renderResultGrid(data.columns, data.rows);
+        state.gridData = { columns: data.columns, rows: data.rows };
+        state.gridPage = 1;
+        renderFilteredGrid();
       } catch (err) {
         if (meta) meta.textContent = "Network Error";
         if (errorBox) {
@@ -1805,44 +2487,446 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       }
     }
 
-    function renderResultGrid(columns, rows) {
-      const thead = document.getElementById("result-thead");
-      const tbody = document.getElementById("result-tbody");
-      const table = document.getElementById("result-table");
-      if (!thead || !tbody || !table) return;
-
-      thead.innerHTML = "";
-      tbody.innerHTML = "";
-
-      const trHead = document.createElement("tr");
-      const thIdx = document.createElement("th");
-      thIdx.textContent = "#";
-      thIdx.style.width = "40px";
-      trHead.appendChild(thIdx);
-
-      columns.forEach(col => {
-        const th = document.createElement("th");
-        th.textContent = col;
-        trHead.appendChild(th);
-      });
-      thead.appendChild(trHead);
-
-      rows.forEach((row, i) => {
-        const tr = document.createElement("tr");
-        const tdIdx = document.createElement("td");
-        tdIdx.textContent = i + 1;
-        tdIdx.style.color = "var(--text-muted)";
-        tr.appendChild(tdIdx);
-
-        row.forEach(val => {
-          const td = document.createElement("td");
-          td.textContent = (val === null || val === undefined) ? "NULL" : val;
-          tr.appendChild(td);
+    /* Query History */
+    function saveQueryToHistory(query, rowCount, executionTimeMs, status) {
+      try {
+        let history = JSON.parse(localStorage.getItem("spindb_query_history") || "[]");
+        history.unshift({
+          id: Date.now(),
+          query: query,
+          database: state.selectedContainer ? state.selectedContainer.name : "default",
+          rowCount: rowCount,
+          timeMs: executionTimeMs,
+          status: status,
+          timestamp: new Date().toLocaleTimeString()
         });
-        tbody.appendChild(tr);
+        if (history.length > 50) history = history.slice(0, 50);
+        localStorage.setItem("spindb_query_history", JSON.stringify(history));
+      } catch (e) {
+        console.error("Failed to save query history:", e);
+      }
+    }
+
+    function openHistoryModal() {
+      const modal = document.getElementById("history-modal");
+      const list = document.getElementById("history-list");
+      if (!modal || !list) return;
+
+      let history = [];
+      try {
+        history = JSON.parse(localStorage.getItem("spindb_query_history") || "[]");
+      } catch (e) { history = []; }
+
+      if (history.length === 0) {
+        list.innerHTML = `<div style="padding:24px; text-align:center; color:var(--text-muted); font-size:0.85rem;">No queries recorded yet. Execute queries in the SQL Console to build your history.</div>`;
+      } else {
+        list.innerHTML = "";
+        history.forEach(item => {
+          const div = document.createElement("div");
+          div.style.cssText = "background:var(--bg-primary); border:1px solid var(--border-color); border-radius:6px; padding:10px; cursor:pointer;";
+          div.onclick = () => {
+            loadHistoryQuery(item.query);
+            closeHistoryModal();
+          };
+          const badgeColor = item.status === "ok" ? "var(--accent-emerald)" : "var(--accent-red)";
+          div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:0.75rem;">
+              <span style="color:var(--accent-cyan); font-family:var(--font-mono);">${item.database} • ${item.timestamp}</span>
+              <span style="color:${badgeColor}; font-weight:600;">${item.status === "ok" ? `✔ ${item.rowCount} rows (${item.timeMs}ms)` : '✖ Error'}</span>
+            </div>
+            <div style="font-family:var(--font-mono); font-size:0.82rem; color:#e2e8f0; white-space:pre-wrap; max-height:60px; overflow:hidden; text-overflow:ellipsis;">${item.query}</div>
+          `;
+          list.appendChild(div);
+        });
+      }
+
+      modal.classList.add("show");
+    }
+
+    function closeHistoryModal() {
+      const modal = document.getElementById("history-modal");
+      if (modal) modal.classList.remove("show");
+    }
+
+    function clearQueryHistory() {
+      localStorage.removeItem("spindb_query_history");
+      openHistoryModal();
+      showToast("Query history cleared.");
+    }
+
+    function loadHistoryQuery(q) {
+      const editor = document.getElementById("sql-editor");
+      if (editor) editor.value = q;
+      const current = state.consoles.find(c => c.id === state.activeConsoleId);
+      if (current) current.query = q;
+      showToast("Loaded query into console.");
+    }
+
+    /* SQL Snippet Library */
+    const SQL_SNIPPETS = [
+      {
+        name: "SELECT Top 50 Records",
+        category: "Read",
+        sql: "SELECT * FROM {table} LIMIT 50;"
+      },
+      {
+        name: "Count Total Table Rows",
+        category: "Read",
+        sql: "SELECT COUNT(*) AS total_records FROM {table};"
+      },
+      {
+        name: "Group By & Frequency Count",
+        category: "Aggregation",
+        sql: "SELECT {column}, COUNT(*) AS total\nFROM {table}\nGROUP BY {column}\nORDER BY total DESC;"
+      },
+      {
+        name: "Inspect Table Indexes",
+        category: "Inspection",
+        sql: "SELECT indexname, indexdef\nFROM pg_indexes\nWHERE tablename = '{tablename}';"
+      },
+      {
+        name: "INSERT Record Template",
+        category: "Write",
+        sql: "INSERT INTO {table} (col1, col2)\nVALUES ('value1', 'value2');"
+      },
+      {
+        name: "Truncate / Purge Table",
+        category: "Maintenance",
+        sql: "TRUNCATE TABLE {table};"
+      }
+    ];
+
+    function openSqlSnippetsModal() {
+      const modal = document.getElementById("sql-snippets-modal");
+      const grid = document.getElementById("snippets-library-grid");
+      if (!modal || !grid) return;
+
+      const table = state.selectedTable ? `${(state.selectedTable.schema && state.selectedTable.schema !== 'default' && state.selectedTable.schema !== 'public') ? state.selectedTable.schema + '.' : ''}${state.selectedTable.table}` : "my_table";
+      const tablename = state.selectedTable ? state.selectedTable.table : "my_table";
+
+      grid.innerHTML = "";
+      SQL_SNIPPETS.forEach(s => {
+        const div = document.createElement("div");
+        div.style.cssText = "background:var(--bg-primary); border:1px solid var(--border-color); border-radius:6px; padding:12px; display:flex; flex-direction:column; justify-content:space-between; gap:8px;";
+        const sqlFormatted = s.sql.replace(/\{table\}/g, table).replace(/\{tablename\}/g, tablename).replace(/\{column\}/g, "status");
+
+        div.innerHTML = `
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="font-weight:600; font-size:0.85rem; color:#fff;">${s.name}</span>
+              <span style="font-size:0.72rem; padding:2px 6px; border-radius:4px; background:var(--bg-tertiary); color:var(--accent-cyan);">${s.category}</span>
+            </div>
+            <pre style="font-family:var(--font-mono); font-size:0.78rem; color:var(--text-secondary); white-space:pre-wrap; margin:0; line-height:1.4;">${sqlFormatted}</pre>
+          </div>
+          <button class="btn-secondary" style="align-self:flex-end; font-size:0.75rem; padding:4px 10px;">Insert into Console ➔</button>
+        `;
+        div.querySelector("button").onclick = () => {
+          const editor = document.getElementById("sql-editor");
+          if (editor) {
+            editor.value = sqlFormatted;
+            const current = state.consoles.find(c => c.id === state.activeConsoleId);
+            if (current) current.query = sqlFormatted;
+          }
+          closeSqlSnippetsModal();
+          showToast(`Inserted '${s.name}' into console.`);
+        };
+        grid.appendChild(div);
       });
 
-      table.style.display = "table";
+      modal.classList.add("show");
+    }
+
+    function closeSqlSnippetsModal() {
+      const modal = document.getElementById("sql-snippets-modal");
+      if (modal) modal.classList.remove("show");
+    }
+
+    /* Mock Data Seeder */
+    function openSeedModal() {
+      if (!state.selectedTable) {
+        showToast("Please select a table in the database tree first.", true);
+        return;
+      }
+      const modal = document.getElementById("seed-modal");
+      const target = document.getElementById("seed-target-table");
+      if (target) target.textContent = `${state.selectedTable.schema}.${state.selectedTable.table}`;
+      if (modal) modal.classList.add("show");
+    }
+
+    function closeSeedModal() {
+      const modal = document.getElementById("seed-modal");
+      if (modal) modal.classList.remove("show");
+    }
+
+    async function submitSeedMockData() {
+      if (!state.selectedTable) return;
+      const c = state.selectedTable.container;
+      const schema = state.selectedTable.schema;
+      const table = state.selectedTable.table;
+      const countSel = document.getElementById("seed-count-select");
+      const count = countSel ? parseInt(countSel.value, 10) : 10;
+
+      const btn = document.getElementById("btn-seed-submit");
+      if (btn) {
+        btn.textContent = "🌱 Inserting...";
+        btn.disabled = true;
+      }
+
+      try {
+        const res = await fetch("/api/seed-mock-data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            container: c.name,
+            engine: c.engine,
+            schema: schema,
+            table: table,
+            count: count
+          })
+        });
+        const data = await res.json();
+        if (data.status === "ok") {
+          showToast(data.message || `Successfully seeded ${count} rows!`);
+          closeSeedModal();
+          switchViewTab("data");
+          loadTableData(c, schema, table);
+        } else {
+          showToast(`Seed failed: ${data.message}`, true);
+        }
+      } catch (err) {
+        showToast(`Seed error: ${err.message}`, true);
+      } finally {
+        if (btn) {
+          btn.textContent = "🌱 Insert Mock Records";
+          btn.disabled = false;
+        }
+      }
+    }
+
+    /* Multi-Language Connection Boilerplate */
+    function openSnippetsModal() {
+      const modal = document.getElementById("snippets-modal");
+      if (!modal) return;
+      modal.classList.add("show");
+      switchSnippetTab(state.currentSnippetLang || "spring");
+    }
+
+    function closeSnippetsModal() {
+      const modal = document.getElementById("snippets-modal");
+      if (modal) modal.classList.remove("show");
+    }
+
+    function switchSnippetTab(lang) {
+      state.currentSnippetLang = lang;
+      ["spring", "python", "node", "go", "cli"].forEach(l => {
+        const btn = document.getElementById(`btn-snip-${l}`);
+        if (btn) {
+          if (l === lang) btn.classList.add("active");
+          else btn.classList.remove("active");
+        }
+      });
+
+      const c = state.selectedContainer;
+      const host = (c && c.host) || "127.0.0.1";
+      const port = (c && c.port) || "5432";
+      const db = (c && c.database) || "pgdb";
+      const user = (c && c.user) || "userid";
+      const pw = (c && c.password) || "P@55w0rd";
+      const driverClass = (c && c.driverClass) || "org.postgresql.Driver";
+      const jdbcUrl = (c && state.customJdbcUrls[c.name]) || (c && c.jdbcUrl) || `jdbc:postgresql://${host}:${port}/${db}`;
+
+      let code = "";
+      if (lang === "spring") {
+        code = `# Spring Boot application.properties
+spring.datasource.url=${jdbcUrl}
+spring.datasource.username=${user}
+spring.datasource.password=${pw}
+spring.datasource.driver-class-name=${driverClass}
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+
+# Or application.yml format:
+spring:
+  datasource:
+    url: ${jdbcUrl}
+    username: ${user}
+    password: ${pw}
+    driver-class-name: ${driverClass}`;
+      } else if (lang === "python") {
+        code = `# Python (psycopg2 / SQLAlchemy connection snippet)
+import psycopg2
+
+conn = psycopg2.connect(
+    host="${host}",
+    port=${port},
+    dbname="${db}",
+    user="${user}",
+    password="${pw}"
+)
+cur = conn.cursor()
+cur.execute("SELECT 1;")
+print("Connected:", cur.fetchone())
+
+# SQLAlchemy Connection URL:
+# postgresql://${user}:${pw}@${host}:${port}/${db}`;
+      } else if (lang === "node") {
+        code = `// Node.js (node-postgres / pg client)
+const { Client } = require('pg');
+
+const client = new Client({
+  host: '${host}',
+  port: ${port},
+  database: '${db}',
+  user: '${user}',
+  password: '${pw}',
+});
+
+async function testConnection() {
+  await client.connect();
+  const res = await client.query('SELECT 1 AS connected');
+  console.log('Result:', res.rows[0]);
+  await client.end();
+}
+
+testConnection();`;
+      } else if (lang === "go") {
+        code = `// Go (database/sql + lib/pq)
+package main
+
+import (
+    "database/sql"
+    "fmt"
+    _ "github.com/lib/pq"
+)
+
+func main() {
+    connStr := "host=${host} port=${port} user=${user} password=${pw} dbname=${db} sslmode=disable"
+    db, err := sql.Open("postgres", connStr)
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+
+    var status int
+    err = db.QueryRow("SELECT 1").Scan(&status)
+    fmt.Printf("Connected successfully: %d\\n", status)
+}`;
+      } else if (lang === "cli") {
+        code = `# Connect via psql command line
+PGPASSWORD='${pw}' psql -h ${host} -p ${port} -U ${user} -d ${db}
+
+# Connect via Container Exec (Podman / Docker)
+podman exec -it ${c ? c.name : 'container'} psql -U ${user} -d ${db}
+# Or:
+docker exec -it ${c ? c.name : 'container'} psql -U ${user} -d ${db}`;
+      }
+
+      const box = document.getElementById("snippet-code-box");
+      if (box) box.textContent = code;
+    }
+
+    function copySnippetCode() {
+      const box = document.getElementById("snippet-code-box");
+      if (!box || !box.textContent) return;
+      navigator.clipboard.writeText(box.textContent).then(() => {
+        showToast("Code snippet copied to clipboard!");
+      }).catch(() => {
+        showToast("Failed to copy snippet.", true);
+      });
+    }
+
+    /* Database Backup Dump & Multi-Statement Script Runner */
+    function downloadDatabaseDump() {
+      if (!state.selectedContainer) {
+        showToast("Please select a running database first.", true);
+        return;
+      }
+      const c = state.selectedContainer;
+      showToast(`Preparing SQL dump for '${c.name}'...`);
+      window.open(`/api/dump?container=${encodeURIComponent(c.name)}&engine=${encodeURIComponent(c.engine)}`, "_blank");
+    }
+
+    function openScriptRunnerModal() {
+      if (!state.selectedContainer) {
+        showToast("Please select a running database first.", true);
+        return;
+      }
+      const modal = document.getElementById("script-runner-modal");
+      const target = document.getElementById("script-target-container");
+      const output = document.getElementById("script-runner-output");
+      const status = document.getElementById("script-runner-status");
+      if (target) target.textContent = state.selectedContainer.name;
+      if (output) output.style.display = "none";
+      if (status) status.textContent = "";
+      if (modal) modal.classList.add("show");
+    }
+
+    function closeScriptRunnerModal() {
+      const modal = document.getElementById("script-runner-modal");
+      if (modal) modal.classList.remove("show");
+    }
+
+    async function submitRunScript() {
+      if (!state.selectedContainer) return;
+      const c = state.selectedContainer;
+      const textEl = document.getElementById("script-runner-text");
+      const script = textEl ? textEl.value.trim() : "";
+      if (!script) {
+        showToast("Script cannot be empty.", true);
+        return;
+      }
+
+      const btn = document.getElementById("btn-script-execute");
+      const status = document.getElementById("script-runner-status");
+      const output = document.getElementById("script-runner-output");
+
+      if (btn) {
+        btn.textContent = "⏳ Running...";
+        btn.disabled = true;
+      }
+      if (status) status.textContent = "Executing script against database...";
+      if (output) output.style.display = "none";
+
+      try {
+        const res = await fetch("/api/execute-script", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            container: c.name,
+            engine: c.engine,
+            script: script
+          })
+        });
+        const data = await res.json();
+        if (data.status === "ok") {
+          if (status) status.textContent = `Completed in ${data.executionTimeMs} ms`;
+          if (output) {
+            output.textContent = data.output || data.message;
+            output.style.background = "rgba(16, 185, 129, 0.15)";
+            output.style.color = "#34d399";
+            output.style.display = "block";
+          }
+          showToast("Script executed successfully!");
+          fetchContainerSchema(c, true);
+        } else {
+          if (status) status.textContent = "Execution failed";
+          if (output) {
+            output.textContent = data.message;
+            output.style.background = "rgba(239, 68, 68, 0.15)";
+            output.style.color = "#fca5a5";
+            output.style.display = "block";
+          }
+          showToast("Script error occurred.", true);
+        }
+      } catch (err) {
+        if (status) status.textContent = "Network error";
+        showToast(`Error: ${err.message}`, true);
+      } finally {
+        if (btn) {
+          btn.textContent = "▶ Execute Script";
+          btn.disabled = false;
+        }
+      }
     }
 
     function presetQuery(type) {

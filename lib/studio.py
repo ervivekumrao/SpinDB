@@ -19,6 +19,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from http import HTTPStatus
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
@@ -696,6 +697,249 @@ def get_table_structure(engine_name, container_name, schema_name, table_name, db
     return columns
 
 
+def get_table_ddl(engine_name, container_name, schema_name, table_name, db_info=None):
+    """Generates or reconstructs SQL CREATE TABLE DDL and indexes."""
+    if not table_name:
+        return "-- No table selected"
+
+    schema_name = schema_name or "public"
+
+    if engine_name in ("mysql", "mariadb"):
+        res = execute_database_query(engine_name, container_name, f"SHOW CREATE TABLE `{schema_name}`.`{table_name}`;", db_info)
+        if res.get("status") == "ok" and res.get("rows"):
+            row = res["rows"][0]
+            return row[1] if len(row) > 1 else str(row[0])
+
+    if engine_name == "clickhouse":
+        res = execute_database_query(engine_name, container_name, f"SHOW CREATE TABLE `{table_name}`;", db_info)
+        if res.get("status") == "ok" and res.get("rows"):
+            return res["rows"][0][0]
+
+    if engine_name in ("postgres", "pgvector", "cockroach"):
+        cols = get_table_structure(engine_name, container_name, schema_name, table_name, db_info)
+        if not cols:
+            return f"-- Table '{schema_name}.{table_name}' not found or has no columns"
+
+        lines = [f"-- Table DDL: {schema_name}.{table_name}", f"-- Reconstructed by SpinDB Web Studio\n"]
+        lines.append(f"CREATE TABLE {schema_name}.{table_name} (")
+        col_defs = []
+        pk_cols = []
+        for c in cols:
+            cname = c["column_name"]
+            ctype = c["data_type"]
+            nullable = "" if c["is_nullable"] == "YES" else " NOT NULL"
+            default_val = f" DEFAULT {c['column_default']}" if c.get("column_default") else ""
+            col_defs.append(f"    {cname} {ctype}{default_val}{nullable}")
+            if c.get("is_primary") == "YES":
+                pk_cols.append(cname)
+
+        if pk_cols:
+            col_defs.append(f"    CONSTRAINT pk_{table_name} PRIMARY KEY ({', '.join(pk_cols)})")
+
+        lines.append(",\n".join(col_defs))
+        lines.append(");")
+
+        idx_res = execute_database_query(
+            engine_name, container_name,
+            f"SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = '{schema_name}' AND tablename = '{table_name}';",
+            db_info
+        )
+        if idx_res.get("status") == "ok" and idx_res.get("rows"):
+            lines.append("\n-- Indexes")
+            for idx_row in idx_res["rows"]:
+                if len(idx_row) >= 2 and "_pkey" not in str(idx_row[0]):
+                    lines.append(f"{idx_row[1]};")
+
+        return "\n".join(lines)
+
+    if engine_name == "mssql":
+        cols = get_table_structure(engine_name, container_name, schema_name, table_name, db_info)
+        lines = [f"-- Table DDL for [{schema_name}].[{table_name}]", f"CREATE TABLE [{schema_name}].[{table_name}] ("]
+        col_defs = [f"    [{c['column_name']}] {c['data_type']}" for c in cols]
+        lines.append(",\n".join(col_defs))
+        lines.append(");")
+        return "\n".join(lines)
+
+    return f"-- Schema definition for {engine_name} table '{table_name}'\n-- Generic DDL representation not available for this engine."
+
+
+def seed_mock_data(engine_name, container_name, schema_name, table_name, count=10, db_info=None):
+    """Inserts realistic synthetic rows into the target table."""
+    try:
+        count = max(1, min(int(count), 250))
+    except (ValueError, TypeError):
+        count = 10
+
+    cols = get_table_structure(engine_name, container_name, schema_name, table_name, db_info)
+    if not cols:
+        return {"status": "error", "message": f"Table '{table_name}' has no columns or was not found."}
+
+    insert_cols = []
+    for c in cols:
+        default_str = str(c.get("column_default", "")).lower()
+        if "nextval(" in default_str or "generated always" in default_str or "identity" in default_str:
+            continue
+        insert_cols.append(c)
+
+    if not insert_cols:
+        insert_cols = cols
+
+    col_names = [c["column_name"] for c in insert_cols]
+
+    first_names = ["Alex", "Jordan", "Taylor", "Morgan", "Sam", "Chris", "Pat", "Robin", "Casey", "Riley", "Jamie", "Avery", "Jesse", "Dakota", "Quinn"]
+    last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson"]
+    domains = ["example.com", "cloudspin.io", "techlabs.org", "enterprise.dev", "dataco.net"]
+    cities = ["San Francisco", "New York", "London", "Tokyo", "Berlin", "Singapore", "Sydney", "Toronto", "Amsterdam", "Paris", "Zurich", "Dublin", "Seoul", "Austin", "Boston"]
+    companies = ["Apex Innovations", "BlueWave Tech", "CloudSphere", "DataMinds", "Echo Systems", "Frontier AI", "GlobalNet", "Hyperion Corp", "InfiniSoft", "JetStream Labs"]
+    statuses = ["ACTIVE", "PENDING", "COMPLETED", "VERIFIED", "IN_REVIEW"]
+
+    rows_values = []
+    for i in range(1, count + 1):
+        row_vals = []
+        fname = first_names[(i - 1) % len(first_names)]
+        lname = last_names[(i - 1 + (i // len(first_names))) % len(last_names)]
+        dom = domains[(i - 1) % len(domains)]
+        full_name = f"{fname} {lname}"
+        email = f"{fname.lower()}.{lname.lower()}{i}@{dom}"
+        city = cities[(i - 1) % len(cities)]
+        comp = companies[(i - 1) % len(companies)]
+        status = statuses[(i - 1) % len(statuses)]
+
+        for c in insert_cols:
+            cname = c["column_name"].lower()
+            dtype = c["data_type"].lower()
+
+            if "email" in cname:
+                row_vals.append(f"'{email}'")
+            elif "name" in cname or "user" in cname or "author" in cname or "customer" in cname:
+                row_vals.append(f"'{full_name}'")
+            elif "city" in cname or "location" in cname:
+                row_vals.append(f"'{city}'")
+            elif "company" in cname or "org" in cname:
+                row_vals.append(f"'{comp}'")
+            elif "status" in cname or "state" in cname:
+                row_vals.append(f"'{status}'")
+            elif "phone" in cname:
+                row_vals.append(f"'+1-555-01{i:02d}'")
+            elif "uuid" in cname or "guid" in cname or dtype == "uuid":
+                row_vals.append(f"'{uuid.uuid4()}'")
+            elif "bool" in dtype:
+                row_vals.append("TRUE" if (i % 2 == 1) else "FALSE")
+            elif any(t in dtype for t in ("int", "serial", "bigint", "smallint")):
+                row_vals.append(str(i * 10))
+            elif any(t in dtype for t in ("numeric", "decimal", "float", "double", "real")) or any(k in cname for k in ("price", "amount", "salary", "balance")):
+                row_vals.append(str(round(29.95 * i, 2)))
+            elif any(t in dtype for t in ("json", "jsonb")):
+                row_vals.append(f"'{{\"seed\": true, \"row\": {i}, \"status\": \"{status}\"}}'")
+            elif any(t in dtype for t in ("date", "time", "timestamp")):
+                row_vals.append(f"'2026-0{(i % 9) + 1}-{(i % 27) + 1:02d} 10:00:00'")
+            else:
+                row_vals.append(f"'{cname.title()} Record {i}'")
+
+        rows_values.append(f"({', '.join(row_vals)})")
+
+    schema_prefix = f"{schema_name}." if schema_name and schema_name != "default" else ""
+    quoted_cols = ", ".join([f'"{c}"' if engine_name in ("postgres", "pgvector", "cockroach") else f"`{c}`" if engine_name in ("mysql", "mariadb") else c for c in col_names])
+    values_str = ",\n".join(rows_values)
+    insert_sql = f"INSERT INTO {schema_prefix}{table_name} ({quoted_cols}) VALUES\n{values_str};"
+
+    res = execute_database_query(engine_name, container_name, insert_sql, db_info)
+    if res.get("status") == "ok":
+        return {
+            "status": "ok",
+            "message": f"Successfully seeded {count} mock rows into '{table_name}'.",
+            "count": count
+        }
+    return {
+        "status": "error",
+        "message": f"Failed to seed mock data: {res.get('message', 'Unknown database error')}"
+    }
+
+
+def dump_database(engine_name, container_name, db_info=None):
+    """Executes database dump utility or exports schema and data as SQL."""
+    c_engine = (db_info.get("runtime") if db_info else None) or resolve_container_engine()
+    user = (db_info.get("user") if db_info else None) or "userid"
+    password = (db_info.get("password") if db_info else None) or "P@55w0rd"
+    database = (db_info.get("database") if db_info else None) or "pgdb"
+
+    if engine_name in ("postgres", "pgvector", "cockroach"):
+        cmd = [c_engine, "exec", container_name, "pg_dump", "-U", user, "-d", database, "--clean", "--if-exists"]
+        try:
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=40)
+            if res.returncode == 0 and res.stdout:
+                return res.stdout, f"{container_name}_{database}_dump.sql"
+        except Exception:
+            pass
+
+    elif engine_name in ("mysql", "mariadb"):
+        cmd = [c_engine, "exec", container_name, "mysqldump", "-u", user, f"-p{password}", database]
+        try:
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=40)
+            if res.returncode == 0 and res.stdout:
+                return res.stdout, f"{container_name}_{database}_dump.sql"
+        except Exception:
+            pass
+
+    tables = get_schema_tables(engine_name, container_name, db_info)
+    fallback_lines = [
+        f"-- SpinDB Studio Database Export",
+        f"-- Container: {container_name} ({engine_name})",
+        f"-- Database: {database}",
+        f"-- Export Date: {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}",
+        "\n"
+    ]
+    for t in tables:
+        s_name = t.get("schema", "public")
+        t_name = t.get("name")
+        ddl = get_table_ddl(engine_name, container_name, s_name, t_name, db_info)
+        fallback_lines.append(ddl)
+        fallback_lines.append("\n")
+
+    return "\n".join(fallback_lines).encode("utf-8"), f"{container_name}_{database}_dump.sql"
+
+
+def execute_multi_script(engine_name, container_name, script, db_info=None):
+    """Executes a multi-statement SQL script."""
+    if not script or not script.strip():
+        return {"status": "error", "message": "Script is empty."}
+
+    c_engine = (db_info.get("runtime") if db_info else None) or resolve_container_engine()
+    user = (db_info.get("user") if db_info else None) or "userid"
+    password = (db_info.get("password") if db_info else None) or "P@55w0rd"
+    database = (db_info.get("database") if db_info else None) or "pgdb"
+
+    start_time = time.time()
+    if engine_name in ("postgres", "pgvector", "cockroach"):
+        cmd = [c_engine, "exec", "-i", container_name, "psql", "-U", user, "-d", database]
+    elif engine_name in ("mysql", "mariadb"):
+        cmd = [c_engine, "exec", "-i", container_name, "mysql", "-u", user, f"-p{password}", database]
+    elif engine_name == "clickhouse":
+        cmd = [c_engine, "exec", "-i", container_name, "clickhouse-client", "--multiquery"]
+    else:
+        return {"status": "error", "message": f"Script execution is not supported for {engine_name}."}
+
+    try:
+        res = subprocess.run(cmd, input=script, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=60)
+        elapsed = round((time.time() - start_time) * 1000, 2)
+        if res.returncode != 0:
+            return {
+                "status": "error",
+                "message": res.stderr.strip() or res.stdout.strip() or f"Script execution failed with code {res.returncode}",
+                "executionTimeMs": elapsed
+            }
+        return {
+            "status": "ok",
+            "message": "Script executed successfully.",
+            "output": res.stdout.strip() or "OK",
+            "executionTimeMs": elapsed
+        }
+    except subprocess.TimeoutExpired:
+        return {"status": "error", "message": "Script execution timed out after 60 seconds."}
+    except Exception as e:
+        return {"status": "error", "message": f"Execution error: {e}"}
+
+
 def parse_jdbc_url(url):
     """Parses host, port, database, and query parameters from a JDBC or native URL."""
     clean = (url or "").strip()
@@ -911,6 +1155,32 @@ class SpinDBStudioHandler(BaseHTTPRequestHandler):
             self.send_json({"status": "ok", "columns": columns, "table": table, "schema": schema})
             return
 
+        if path == "/api/table-ddl":
+            cname = query_params.get("container", [""])[0]
+            engine = query_params.get("engine", ["postgres"])[0]
+            schema = query_params.get("schema", [""])[0]
+            table = query_params.get("table", [""])[0]
+            containers = get_running_containers()
+            db_info = next((c for c in containers if c["name"] == cname), None)
+            ddl = get_table_ddl(engine, cname, schema, table, db_info)
+            self.send_json({"status": "ok", "ddl": ddl, "table": table, "schema": schema})
+            return
+
+        if path == "/api/dump":
+            cname = query_params.get("container", [""])[0]
+            engine = query_params.get("engine", ["postgres"])[0]
+            containers = get_running_containers()
+            db_info = next((c for c in containers if c["name"] == cname), None)
+            dump_data, filename = dump_database(engine, cname, db_info)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/sql")
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            self.send_header("Content-Length", str(len(dump_data)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(dump_data)
+            return
+
         if path == "/docs":
             docs_file = PROJECT_ROOT / "docs" / "DATABASE_GUIDE.md"
             if docs_file.exists():
@@ -960,6 +1230,28 @@ class SpinDBStudioHandler(BaseHTTPRequestHandler):
             db_info = next((c for c in containers if c["name"] == cname), None)
 
             res = test_database_connection(cname, engine, jdbc_url, user, password, db_info)
+            self.send_json(res)
+            return
+
+        if path == "/api/seed-mock-data":
+            cname = payload.get("container", "")
+            engine = payload.get("engine", "postgres")
+            schema = payload.get("schema", "")
+            table = payload.get("table", "")
+            count = payload.get("count", 10)
+            containers = get_running_containers()
+            db_info = next((c for c in containers if c["name"] == cname), None)
+            res = seed_mock_data(engine, cname, schema, table, count, db_info)
+            self.send_json(res)
+            return
+
+        if path == "/api/execute-script":
+            cname = payload.get("container", "")
+            engine = payload.get("engine", "postgres")
+            script = payload.get("script", "")
+            containers = get_running_containers()
+            db_info = next((c for c in containers if c["name"] == cname), None)
+            res = execute_multi_script(engine, cname, script, db_info)
             self.send_json(res)
             return
 

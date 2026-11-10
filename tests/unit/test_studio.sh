@@ -119,6 +119,17 @@ test_studio_server_smoke_startup_and_api() {
   assert_contains "${drivers_json}" '"postgres":' "API /api/drivers missing postgres"
   assert_contains "${drivers_json}" '"mysql":' "API /api/drivers missing mysql"
 
+  # Test UI features presence in index HTML
+  assert_contains "${index_html}" "Table DDL" "Index HTML missing Table DDL tab"
+  assert_contains "${index_html}" "Seed Mock Data" "Index HTML missing Seed Mock Data"
+  assert_contains "${index_html}" "Code Snippets" "Index HTML missing Code Snippets"
+  assert_contains "${index_html}" "SQL Dump" "Index HTML missing SQL Dump"
+
+  # Test GET /api/table-ddl
+  local ddl_json
+  ddl_json="$(curl -s "http://127.0.0.1:${test_port}/api/table-ddl?table=test&schema=public&engine=postgres")"
+  assert_contains "${ddl_json}" '"status": "ok"' "API /api/table-ddl failed"
+
   # Stop server
   kill -9 "${py_pid}" 2>/dev/null || true
   trap - EXIT
