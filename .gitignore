@@ -24,7 +24,10 @@ build/
 build.*/
 tmp/
 *.tmp
+*.jar
 .cache/
+__pycache__/
+*.pyc
 
 # Environment Overrides & Secret Credentials (Never Commit Secrets)
 *.local.properties

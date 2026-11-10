@@ -13,6 +13,8 @@ PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 
 # shellcheck source=lib/versions.sh
 source "${PROJECT_ROOT}/lib/versions.sh"
+# shellcheck source=lib/studio.sh
+source "${PROJECT_ROOT}/lib/studio.sh"
 
 resolve_lifecycle_engine() {
   if [[ -n "${CONTAINER_ENGINE}" ]]; then
@@ -37,6 +39,11 @@ handle_lifecycle_command() {
   local target="$2"
 
   case "${action}" in
+    studio|ui|web)
+      shift 1
+      launch_studio "$@"
+      exit 0
+      ;;
     versions|list-versions|list_versions)
       local engine="${target}"
       local filter="${3:-}"

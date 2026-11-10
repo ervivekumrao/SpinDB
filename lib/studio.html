@@ -1,0 +1,2000 @@
+<!DOCTYPE html>
+<!--
+SPDX-License-Identifier: Apache-2.0
+Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SpinDB Web Studio - SQL Client UI</title>
+  <!-- INITIAL_DATA -->
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --bg-tertiary: #334155;
+      --bg-accent: #1e293b;
+      --border-color: #334155;
+      --border-focus: #38bdf8;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-blue: #0284c7;
+      --accent-blue-hover: #0369a1;
+      --accent-cyan: #38bdf8;
+      --accent-green: #10b981;
+      --accent-emerald: #059669;
+      --accent-yellow: #f59e0b;
+      --accent-red: #ef4444;
+      --code-bg: #0b1120;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header */
+    header {
+      background-color: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+      flex-shrink: 0;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: var(--accent-cyan);
+    }
+    .brand-icon {
+      font-size: 1.4rem;
+    }
+    .brand span {
+      color: #fff;
+      font-weight: 400;
+      font-size: 0.95rem;
+      border-left: 1px solid var(--border-color);
+      padding-left: 10px;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    button {
+      background-color: var(--accent-blue);
+      color: #fff;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    button:hover { background-color: var(--accent-blue-hover); }
+    button.btn-secondary {
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+    button.btn-secondary:hover { background-color: #475569; }
+    button.btn-success {
+      background-color: var(--accent-emerald);
+    }
+    button.btn-success:hover { background-color: #047857; }
+    button.btn-danger {
+      background-color: #b91c1c;
+    }
+    button.btn-danger:hover { background-color: #991b1b; }
+
+    /* Layout */
+    .app-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 320px;
+      background-color: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .sidebar-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Database Navigator Tree Styles */
+    .tree-toolbar {
+      padding: 10px 12px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      background-color: rgba(15, 23, 42, 0.4);
+    }
+    .tree-actions {
+      display: flex;
+      gap: 5px;
+    }
+    .tree-btn {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      transition: all 0.15s ease;
+    }
+    .tree-btn:hover {
+      background: var(--accent-blue);
+      color: #fff;
+      border-color: var(--accent-blue);
+    }
+    .tree-view {
+      list-style: none;
+      overflow-y: auto;
+      flex: 1;
+      padding: 8px 6px;
+      font-size: 0.84rem;
+    }
+    .tree-node {
+      margin-bottom: 3px;
+    }
+    .tree-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+      color: var(--text-primary);
+    }
+    .tree-row:hover {
+      background-color: var(--bg-tertiary);
+    }
+    .tree-row.active {
+      background-color: #1e3a8a;
+      border-left: 3px solid #38bdf8;
+      color: #fff;
+    }
+    .tree-arrow {
+      width: 14px;
+      height: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.15s ease;
+    }
+    .tree-arrow.expanded {
+      transform: rotate(90deg);
+    }
+    .tree-icon {
+      font-size: 0.95rem;
+      display: inline-flex;
+      align-items: center;
+    }
+    .tree-label {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 500;
+    }
+    .tree-badge {
+      font-size: 0.68rem;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background-color: var(--bg-primary);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+    }
+    .tree-children {
+      margin-left: 18px;
+      border-left: 1px dashed var(--border-color);
+      padding-left: 6px;
+      display: none;
+    }
+    .tree-children.expanded {
+      display: block;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--accent-red);
+      display: inline-block;
+    }
+    .status-dot.online {
+      background-color: var(--accent-green);
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+    }
+    .engine-badge {
+      font-size: 0.72rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background-color: var(--bg-primary);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-weight: 500;
+    }
+    .db-port {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    /* View Switcher Tabs (Data / Structure / SQL) */
+    .view-tabs-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+      margin-bottom: 6px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .view-tabs {
+      display: flex;
+      gap: 6px;
+    }
+    .view-tab {
+      background-color: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    .view-tab:hover {
+      background-color: var(--bg-tertiary);
+      color: #fff;
+    }
+    .view-tab.active {
+      background-color: var(--accent-blue);
+      border-color: var(--accent-blue);
+      color: #fff;
+      box-shadow: 0 2px 4px rgba(2, 132, 199, 0.4);
+    }
+    .key-badge {
+      font-size: 0.72rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(234, 179, 8, 0.15);
+      color: #facc15;
+      border: 1px solid rgba(234, 179, 8, 0.3);
+      font-weight: 600;
+    }
+    .type-badge {
+      font-family: var(--font-mono);
+      color: var(--accent-cyan);
+      font-size: 0.82rem;
+    }
+
+
+    /* Main Area */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 16px 20px;
+      gap: 16px;
+    }
+
+    /* Cards */
+    .card {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    }
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #fff;
+    }
+
+    /* Connection Parameters Grid */
+    .param-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .param-box {
+      background-color: var(--bg-primary);
+      padding: 10px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+    }
+    .param-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+    .param-value {
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      word-break: break-all;
+    }
+    .param-value .toggle-pw {
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      user-select: none;
+    }
+    .param-value .toggle-pw:hover { color: #fff; }
+
+    /* JDBC URL Input Bar */
+    .jdbc-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .jdbc-input-wrap {
+      display: flex;
+      gap: 8px;
+    }
+    .jdbc-input {
+      flex: 1;
+      background-color: var(--code-bg);
+      border: 1px solid var(--border-color);
+      color: #38bdf8;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      padding: 10px 14px;
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .jdbc-input:focus {
+      border-color: var(--border-focus);
+    }
+    .jdbc-presets {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .chip {
+      font-size: 0.74rem;
+      background-color: var(--bg-tertiary);
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      border: 1px solid transparent;
+      user-select: none;
+    }
+    .chip:hover {
+      border-color: var(--accent-cyan);
+      color: #fff;
+    }
+
+    /* Driver Download Card */
+    .driver-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 12px 16px;
+      gap: 16px;
+    }
+    .driver-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .driver-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #fff;
+    }
+    .driver-class {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+    .driver-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+      width: fit-content;
+    }
+    .badge-installed {
+      background-color: rgba(16, 185, 129, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .badge-missing {
+      background-color: rgba(245, 158, 11, 0.15);
+      color: var(--accent-yellow);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .driver-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    /* SQL Editor Section */
+    .query-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+      min-height: 380px;
+    }
+    .editor-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .query-presets {
+      display: flex;
+      gap: 6px;
+    }
+    .sql-editor {
+      width: 100%;
+      height: 120px;
+      background-color: var(--code-bg);
+      border: 1px solid var(--border-color);
+      color: #f8fafc;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      padding: 12px;
+      border-radius: 6px;
+      outline: none;
+      resize: vertical;
+      line-height: 1.5;
+    }
+    .sql-editor:focus {
+      border-color: var(--border-focus);
+    }
+
+    /* Results Grid */
+    .results-container {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 200px;
+    }
+    .results-header {
+      padding: 8px 14px;
+      background-color: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-secondary);
+    }
+    .results-table-wrap {
+      flex: 1;
+      overflow: auto;
+    }
+    table.result-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+      font-family: var(--font-mono);
+    }
+    table.result-table th {
+      position: sticky;
+      top: 0;
+      background-color: #1e293b;
+      padding: 8px 12px;
+      text-align: left;
+      font-weight: 600;
+      color: #38bdf8;
+      border-bottom: 2px solid var(--border-color);
+      border-right: 1px solid var(--border-color);
+      white-space: nowrap;
+    }
+    table.result-table td {
+      padding: 7px 12px;
+      border-bottom: 1px solid var(--border-color);
+      border-right: 1px solid var(--border-color);
+      white-space: nowrap;
+      color: var(--text-primary);
+    }
+    table.result-table tr:nth-child(even) {
+      background-color: rgba(255, 255, 255, 0.02);
+    }
+    table.result-table tr:hover {
+      background-color: rgba(56, 189, 248, 0.08);
+    }
+    .empty-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      padding: 40px;
+      text-align: center;
+    }
+    .error-banner {
+      background-color: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0, 0, 0, 0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-backdrop.show { display: flex; }
+    .modal {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      width: 460px;
+      max-width: 90%;
+      padding: 20px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    .modal-header {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .form-control {
+      width: 100%;
+      background-color: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      outline: none;
+    }
+    .form-control:focus { border-color: var(--border-focus); }
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background-color: var(--accent-emerald);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      transform: translateY(10px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+      z-index: 200;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <span class="brand-icon">⚡</span> SpinDB Web Studio
+      <span>DBeaver-Style Database Manager</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn-success" onclick="openSpinModal()">+ Spin New DB</button>
+      <button class="btn-secondary" id="btn-rescan-header" onclick="rescanAllContainers(true)" title="Rescans Docker & Podman for active database containers and refreshes the tree navigator">🔄 Rescan Running DBs</button>
+      <a href="/docs" target="_blank" style="text-decoration:none;">
+        <button class="btn-secondary">📘 Guide</button>
+      </a>
+    </div>
+  </header>
+
+  <div class="app-container">
+    <!-- Sidebar: Hierarchical Database Navigator Tree -->
+    <aside class="sidebar">
+      <div class="tree-toolbar">
+        <span>Database Navigator (<span id="db-count">0</span>)</span>
+        <div class="tree-actions">
+          <button class="tree-btn" onclick="rescanAllContainers(true)" title="Rescan running databases and reload tree">🔄 Rescan</button>
+          <button class="tree-btn" onclick="toggleExpandAllTree()" title="Expand or collapse all tree nodes" id="btn-toggle-all">⊞ Expand All</button>
+        </div>
+      </div>
+      <div class="tree-view" id="db-tree">
+        <!-- Hierarchical Tree: DBs > Schemas > Tables -->
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="main-content">
+      <!-- Database Status & Parameters Card -->
+      <section class="card">
+        <div class="card-title">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span id="selected-db-title">No Database Selected</span>
+            <span id="selected-db-badge" class="engine-badge" style="display:none;"></span>
+          </div>
+          <div style="display:flex; gap:8px;" id="container-controls">
+            <button class="btn-secondary" id="btn-restart" style="display:none;" onclick="handleContainerAction('restart')">Restart</button>
+            <button class="btn-danger" id="btn-stop" style="display:none;" onclick="handleContainerAction('stop')">Stop</button>
+          </div>
+        </div>
+
+        <div class="param-grid" id="param-grid">
+          <div class="param-box">
+            <div class="param-label">Host</div>
+            <div class="param-value" id="val-host">127.0.0.1</div>
+          </div>
+          <div class="param-box">
+            <div class="param-label">Port</div>
+            <div class="param-value" id="val-port">-</div>
+          </div>
+          <div class="param-box">
+            <div class="param-label">Database Name</div>
+            <div class="param-value" id="val-dbname">-</div>
+          </div>
+          <div class="param-box">
+            <div class="param-label">Username</div>
+            <div class="param-value" id="val-user">-</div>
+          </div>
+          <div class="param-box">
+            <div class="param-label">Password</div>
+            <div class="param-value">
+              <span id="val-password">••••••••</span>
+              <span class="toggle-pw" onclick="togglePasswordVisibility()">👁</span>
+            </div>
+          </div>
+          <div class="param-box">
+            <div class="param-label">Container Status</div>
+            <div class="param-value" id="val-status" style="font-size:0.8rem;">-</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Interactive Editable JDBC URL Card -->
+      <section class="card">
+        <div class="card-title">
+          <span>JDBC Connection URL (Editable)</span>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-success" id="btn-reconnect" onclick="reconnectDatabase()" title="Test connection and reconnect to database using modified JDBC URL">🔌 Reconnect</button>
+            <button onclick="resetJdbcUrl()" class="btn-secondary" title="Reset to default URL">↺ Reset</button>
+            <button class="btn-secondary" onclick="copyJdbcUrl()" title="Copy JDBC URL to clipboard">📋 Copy URL</button>
+          </div>
+        </div>
+        <div class="jdbc-container">
+          <div class="jdbc-input-wrap">
+            <input type="text" id="jdbc-input" class="jdbc-input" placeholder="jdbc:postgresql://127.0.0.1:5432/pgdb" />
+          </div>
+          <div class="jdbc-presets">
+            <span style="font-size:0.75rem; color:var(--text-muted); align-self:center;">Quick Append:</span>
+            <span class="chip" onclick="appendJdbcParam('sslmode=disable')">+ sslmode=disable</span>
+            <span class="chip" onclick="appendJdbcParam('allowPublicKeyRetrieval=true')">+ allowPublicKeyRetrieval</span>
+            <span class="chip" onclick="appendJdbcParam('useSSL=false')">+ useSSL=false</span>
+            <span class="chip" onclick="appendJdbcParam('trustServerCertificate=true')">+ trustServerCert</span>
+          </div>
+          <div id="reconnect-status-box" style="display:none; margin-top:12px;"></div>
+        </div>
+      </section>
+
+      <!-- Official JDBC Driver Download Card -->
+      <section class="card">
+        <div class="card-title">
+          <span>Official JDBC Driver Center</span>
+          <a id="driver-portal-link" href="#" target="_blank" style="font-size:0.8rem; color:var(--accent-cyan); text-decoration:none;">Vendor Portal ↗</a>
+        </div>
+        <div class="driver-box">
+          <div class="driver-info">
+            <div class="driver-name" id="driver-display-name">PostgreSQL JDBC Driver</div>
+            <div class="driver-class" id="driver-class-name">Class: org.postgresql.Driver</div>
+            <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
+              <span id="driver-status-badge" class="driver-status-badge badge-missing">Checking local cache...</span>
+              <span id="driver-maven-coords" style="font-size:0.75rem; color:var(--text-muted); font-family:var(--font-mono);"></span>
+            </div>
+          </div>
+          <div class="driver-actions">
+            <button class="btn-secondary" id="btn-save-lib" onclick="downloadDriverToLib()">💾 Save to SpinDB lib/</button>
+            <button class="btn-success" id="btn-download-browser" onclick="downloadDriverBrowser()">⬇️ Download .JAR</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- SQL Query, Table Data & Structure Viewer -->
+      <section class="card query-section">
+        <!-- View Switcher Tabs -->
+        <div class="view-tabs-bar">
+          <div class="view-tabs">
+            <button class="view-tab active" id="tab-data" onclick="switchViewTab('data')">📊 Table Data</button>
+            <button class="view-tab" id="tab-structure" onclick="switchViewTab('structure')">📐 Table Structure</button>
+            <button class="view-tab" id="tab-sql" onclick="switchViewTab('sql')">💻 SQL Query Console</button>
+          </div>
+          <div id="table-context-info" style="font-size:0.82rem; color:var(--accent-cyan); font-family:var(--font-mono); display:none;">
+            Target Table: <b id="context-table-name" style="color:#fff;"></b>
+          </div>
+        </div>
+
+        <!-- SQL Console Toolbar & Editor (visible in 'sql' and 'data' modes) -->
+        <div id="sql-console-container">
+          <div class="editor-toolbar">
+            <div class="query-presets">
+              <button class="btn-secondary" onclick="presetQuery('tables')">Show Tables</button>
+              <button class="btn-secondary" onclick="presetQuery('version')">Select Version</button>
+              <button class="btn-secondary" onclick="presetQuery('sample')">Sample SELECT</button>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn-secondary" onclick="exportResultsCsv()">📥 Export CSV</button>
+              <button class="btn-secondary" onclick="clearEditor()">🧹 Clear</button>
+              <button class="btn-success" onclick="runQuery()" title="Shortcut: Ctrl + Enter">▶ Run Query (Ctrl+Enter)</button>
+            </div>
+          </div>
+          <textarea id="sql-editor" class="sql-editor" placeholder="Type your SQL query here... (e.g. SELECT * FROM userdata.customers LIMIT 50;)"></textarea>
+        </div>
+
+        <!-- Tabular Records Results View -->
+        <div class="results-container" id="data-results-container">
+          <div class="results-header">
+            <span id="results-meta">Ready to inspect data or execute query</span>
+            <span id="results-timer" style="font-family:var(--font-mono); font-size:0.75rem;"></span>
+          </div>
+          <div class="results-table-wrap" id="results-table-wrap">
+            <div class="empty-state" id="empty-state">Click any table in the Database Navigator tree on the left, or run a SQL query above.</div>
+            <div id="error-box" class="error-banner" style="display:none; margin:16px;"></div>
+            <table class="result-table" id="result-table" style="display:none;">
+              <thead id="result-thead"></thead>
+              <tbody id="result-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Table Structure Columns View -->
+        <div class="results-container" id="structure-results-container" style="display:none;">
+          <div class="results-header">
+            <span id="structure-meta">Column Structure & Data Types</span>
+            <span id="structure-count" style="font-size:0.75rem; color:var(--text-muted); font-family:var(--font-mono);"></span>
+          </div>
+          <div class="results-table-wrap">
+            <div class="empty-state" id="structure-empty-state">Select a table in the Database Navigator tree to view columns, types, nullability, and primary keys.</div>
+            <div id="structure-error-box" class="error-banner" style="display:none; margin:16px;"></div>
+            <table class="result-table" id="structure-table" style="display:none;">
+              <thead>
+                <tr>
+                  <th style="width:40px;">#</th>
+                  <th>Column Name</th>
+                  <th>Data Type</th>
+                  <th>Nullable</th>
+                  <th>Key</th>
+                  <th>Default Value</th>
+                </tr>
+              </thead>
+              <tbody id="structure-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Spin New DB Modal -->
+  <div class="modal-backdrop" id="spin-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span>Spin Up New Database</span>
+        <span style="cursor:pointer;" onclick="closeSpinModal()">✕</span>
+      </div>
+      <div class="form-group">
+        <label>Database Engine</label>
+        <select id="spin-engine" class="form-control" onchange="updateSpinDefaults()">
+          <option value="postgres">PostgreSQL</option>
+          <option value="mysql">MySQL</option>
+          <option value="mariadb">MariaDB</option>
+          <option value="clickhouse">ClickHouse</option>
+          <option value="mssql">Microsoft SQL Server</option>
+          <option value="cockroach">CockroachDB</option>
+          <option value="pgvector">pgvector (AI Vector)</option>
+          <option value="mongodb">MongoDB</option>
+          <option value="redis">Redis / Valkey</option>
+          <option value="oracle">Oracle Free</option>
+          <option value="snowflake">Snowflake Emulator</option>
+          <option value="databricks">Databricks Spark</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Container Name (Optional)</label>
+        <input type="text" id="spin-name" class="form-control" placeholder="e.g. dev-pg" />
+      </div>
+      <div class="form-group">
+        <label>Host Port (Leave empty for auto-allocation)</label>
+        <input type="text" id="spin-port" class="form-control" placeholder="Auto-allocated sequential port" />
+      </div>
+      <div class="form-group">
+        <label>Version Tag (Default: latest)</label>
+        <input type="text" id="spin-version" class="form-control" value="latest" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeSpinModal()">Cancel</button>
+        <button class="btn-success" id="btn-spin-submit" onclick="submitSpinDB()">🚀 Launch Container</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast">Notification</div>
+
+  <script>
+    let state = {
+      containers: [],
+      selectedContainer: null,
+      selectedTable: null, // { container, schema, table }
+      activeTab: "data", // "data", "structure", "sql"
+      drivers: {},
+      rawPassword: "",
+      showPassword: false,
+      lastQueryResult: null,
+      customJdbcUrls: {}, // containerName -> user-modified/appended JDBC URL
+      connectedDbs: {}, // containerName -> boolean
+      treeSchemas: {}, // containerName -> tables array
+      treeExpanded: {}, // "c:name" or "s:cName:sName" -> boolean
+      allExpanded: false
+    };
+
+    function initApp() {
+      // 1. Immediately hydrate with server-injected data on page load
+      if (window.__INITIAL_CONTAINERS__ && window.__INITIAL_DRIVERS__) {
+        state.containers = window.__INITIAL_CONTAINERS__;
+        state.drivers = window.__INITIAL_DRIVERS__;
+        if (state.containers.length > 0) {
+          const first = state.containers[0];
+          state.connectedDbs = { [first.name]: true };
+          state.treeExpanded = { ["c:" + first.name]: true };
+          selectContainer(first, true);
+        } else {
+          showEmptyDatabaseState();
+        }
+        renderTree();
+      }
+      setupKeybindings();
+      setupJdbcInputListener();
+
+      // 2. Initial background load and silent polling
+      loadAllData(false);
+      setInterval(() => loadAllData(false), 3500);
+    }
+
+    window.addEventListener('error', function(event) {
+      console.error('SpinDB Studio UI error:', event.error || event.message);
+      showToast('UI Warning: ' + (event.message || 'Script error'), true);
+    });
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initApp);
+    } else {
+      initApp();
+    }
+
+    function setupKeybindings() {
+      const editor = document.getElementById("sql-editor");
+      if (!editor) return;
+      editor.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          e.preventDefault();
+          runQuery();
+        }
+      });
+    }
+
+    function setupJdbcInputListener() {
+      const input = document.getElementById("jdbc-input");
+      if (!input) return;
+      input.addEventListener("input", () => {
+        if (state.selectedContainer) {
+          state.customJdbcUrls[state.selectedContainer.name] = input.value;
+          // Hide stale reconnect message when user edits
+          const box = document.getElementById("reconnect-status-box");
+          if (box) box.style.display = "none";
+        }
+      });
+    }
+
+    function getEngineIcon(engine) {
+      switch ((engine || "").toLowerCase()) {
+        case "postgres":
+        case "pgvector":
+          return "🐘";
+        case "redis":
+          return "🔴";
+        case "mysql":
+        case "mariadb":
+          return "🐬";
+        case "clickhouse":
+          return "⚡";
+        case "mssql":
+          return "🏢";
+        case "oracle":
+          return "⭕";
+        case "mongodb":
+          return "🍃";
+        default:
+          return "🗄️";
+      }
+    }
+
+    function renderTree() {
+      const treeEl = document.getElementById("db-tree");
+      const countEl = document.getElementById("db-count");
+      if (countEl) countEl.textContent = state.containers.length;
+      if (!treeEl) return;
+      treeEl.innerHTML = "";
+
+      if (state.containers.length === 0) {
+        treeEl.innerHTML = `<div style="padding:16px; color:var(--text-muted); font-size:0.85rem; text-align:center;">
+          No running databases detected.<br/><br/>
+          Click <b>+ Spin New DB</b> to launch one!
+        </div>`;
+        return;
+      }
+
+      state.containers.forEach(c => {
+        const isConnected = Boolean(state.connectedDbs && state.connectedDbs[c.name]);
+        const isContainerActive = state.selectedContainer && state.selectedContainer.name === c.name;
+        const cKey = "c:" + c.name;
+        const isContainerExpanded = isConnected && Boolean(state.treeExpanded[cKey]);
+
+        const node = document.createElement("div");
+        node.className = "tree-node";
+
+        // Container Row
+        const row = document.createElement("div");
+        row.className = "tree-row" + (isContainerActive ? " active" : "");
+        row.onclick = () => {
+          connectAndSelectDatabase(c);
+        };
+
+        // Arrow only shown when DB is connected!
+        const arrowHtml = isConnected
+          ? `<span class="tree-arrow ${isContainerExpanded ? 'expanded' : ''}" onclick="event.stopPropagation(); toggleContainerNode('${c.name}')">▶</span>`
+          : `<span class="tree-arrow" style="visibility:hidden; pointer-events:none;">▶</span>`;
+
+        row.innerHTML = `
+          ${arrowHtml}
+          <span class="tree-icon">${getEngineIcon(c.engine)}</span>
+          <span class="tree-label" title="${c.displayName} (${c.name})">${c.name}</span>
+          <span class="tree-badge">:${c.port}</span>
+          <span class="status-dot ${c.isRunning ? 'online' : ''}" title="${isConnected ? 'Connected & Running' : 'Running (Click to connect)'}"></span>
+        `;
+        node.appendChild(row);
+
+        // Children Container (Schemas)
+        const childrenDiv = document.createElement("div");
+        childrenDiv.className = "tree-children" + (isContainerExpanded ? " expanded" : "");
+        childrenDiv.id = `tree-c-${c.name}`;
+
+        if (!isConnected || !isContainerExpanded) {
+          // Keep collapsed / empty
+        } else {
+          const tables = state.treeSchemas[c.name];
+          if (tables === undefined) {
+            childrenDiv.innerHTML = `<div style="padding:4px 8px; font-size:0.75rem; color:var(--text-muted);">Loading schemas...</div>`;
+          } else if (tables.length === 0) {
+            childrenDiv.innerHTML = `<div style="padding:4px 8px; font-size:0.75rem; color:var(--text-muted);">(No tables found)</div>`;
+          } else {
+            // Group tables by schema
+            const groups = {};
+            tables.forEach(t => {
+              const sName = t.schema || "default";
+              if (!groups[sName]) groups[sName] = [];
+              groups[sName].push(t);
+            });
+
+            Object.keys(groups).sort().forEach(sName => {
+              const sKey = "s:" + c.name + ":" + sName;
+              const isSchemaExpanded = Boolean(state.treeExpanded[sKey]);
+              const sTables = groups[sName];
+
+              const sNode = document.createElement("div");
+              sNode.className = "tree-node";
+
+              // Schema Row
+              const sRow = document.createElement("div");
+              sRow.className = "tree-row";
+              sRow.style.paddingLeft = "4px";
+              sRow.onclick = (e) => {
+                e.stopPropagation();
+                toggleSchemaNode(c.name, sName);
+              };
+
+              sRow.innerHTML = `
+                <span class="tree-arrow ${isSchemaExpanded ? 'expanded' : ''}" onclick="event.stopPropagation(); toggleSchemaNode('${c.name}', '${sName}')">▶</span>
+                <span class="tree-icon">📁</span>
+                <span class="tree-label" style="font-weight:600; font-size:0.8rem;">${sName}</span>
+                <span style="font-size:0.7rem; color:var(--text-muted);">(${sTables.length})</span>
+              `;
+              sNode.appendChild(sRow);
+
+              // Schema Children (Tables)
+              const sChildren = document.createElement("div");
+              sChildren.className = "tree-children" + (isSchemaExpanded ? " expanded" : "");
+
+              sTables.forEach(t => {
+                const isTableActive = state.selectedTable &&
+                                      state.selectedTable.container.name === c.name &&
+                                      state.selectedTable.schema === sName &&
+                                      state.selectedTable.table === t.name;
+
+                const tRow = document.createElement("div");
+                tRow.className = "tree-row" + (isTableActive ? " active" : "");
+                tRow.style.paddingLeft = "4px";
+                tRow.title = `Click to inspect table '${sName}.${t.name}'`;
+                tRow.onclick = (e) => {
+                  e.stopPropagation();
+                  selectTable(c.name, sName, t.name);
+                };
+
+                tRow.innerHTML = `
+                  <span class="tree-arrow" style="visibility:hidden;">▶</span>
+                  <span class="tree-icon">📄</span>
+                  <span class="tree-label" style="font-family:var(--font-mono); font-size:0.78rem;">${t.name}</span>
+                  <span class="tree-badge" style="font-size:0.65rem;">${t.type === 'VIEW' ? 'VIEW' : 'TBL'}</span>
+                `;
+                sChildren.appendChild(tRow);
+              });
+
+              sNode.appendChild(sChildren);
+              childrenDiv.appendChild(sNode);
+            });
+          }
+        }
+
+        node.appendChild(childrenDiv);
+        treeEl.appendChild(node);
+      });
+    }
+
+    function connectAndSelectDatabase(c) {
+      state.connectedDbs[c.name] = true;
+      state.treeExpanded["c:" + c.name] = true;
+      selectContainer(c);
+      fetchContainerSchema(c);
+      renderTree();
+    }
+
+    function toggleContainerNode(cname) {
+      const key = "c:" + cname;
+      if (!state.connectedDbs[cname]) {
+        state.connectedDbs[cname] = true;
+        state.treeExpanded[key] = true;
+      } else {
+        state.treeExpanded[key] = !state.treeExpanded[key];
+      }
+      const c = state.containers.find(x => x.name === cname);
+      if (c && state.treeExpanded[key] && !state.treeSchemas[cname]) {
+        fetchContainerSchema(c);
+      }
+      renderTree();
+    }
+
+    function toggleSchemaNode(cname, sname) {
+      const key = "s:" + cname + ":" + sname;
+      state.treeExpanded[key] = !state.treeExpanded[key];
+      renderTree();
+    }
+
+    function toggleExpandAllTree() {
+      state.allExpanded = !state.allExpanded;
+      const btn = document.getElementById("btn-toggle-all");
+      if (btn) btn.textContent = state.allExpanded ? "⊟ Collapse All" : "⊞ Expand All";
+
+      state.containers.forEach(c => {
+        if (state.allExpanded) {
+          state.connectedDbs[c.name] = true;
+          state.treeExpanded["c:" + c.name] = true;
+          if (!state.treeSchemas[c.name]) {
+            fetchContainerSchema(c);
+          }
+          if (state.treeSchemas[c.name]) {
+            state.treeSchemas[c.name].forEach(t => {
+              state.treeExpanded["s:" + c.name + ":" + (t.schema || "default")] = true;
+            });
+          }
+        } else {
+          state.treeExpanded["c:" + c.name] = false;
+        }
+      });
+      renderTree();
+    }
+
+    async function fetchContainerSchema(c, forceReload = false) {
+      if (!forceReload && state.treeSchemas[c.name]) return;
+      try {
+        const res = await fetch(`/api/schema?container=${encodeURIComponent(c.name)}&engine=${encodeURIComponent(c.engine)}`);
+        const data = await res.json();
+        state.treeSchemas[c.name] = data.tables || [];
+        renderTree();
+      } catch (err) {
+        console.error("Schema fetch error for", c.name, err);
+      }
+    }
+
+    function selectContainer(c, forceInitial = false) {
+      state.selectedContainer = c;
+      state.rawPassword = c.password || "";
+      state.showPassword = false;
+
+      // Update parameters UI
+      const titleEl = document.getElementById("selected-db-title");
+      if (titleEl) titleEl.textContent = `${c.displayName} (${c.name})`;
+      const badge = document.getElementById("selected-db-badge");
+      if (badge) {
+        badge.textContent = c.engine;
+        badge.style.display = "inline-block";
+      }
+
+      const valHost = document.getElementById("val-host");
+      const valPort = document.getElementById("val-port");
+      const valDb = document.getElementById("val-dbname");
+      const valUser = document.getElementById("val-user");
+      const valPw = document.getElementById("val-password");
+      const valStatus = document.getElementById("val-status");
+
+      if (valHost) valHost.textContent = c.host || "127.0.0.1";
+      if (valPort) valPort.textContent = c.port || "-";
+      if (valDb) valDb.textContent = c.database || "-";
+      if (valUser) valUser.textContent = c.user || "-";
+      if (valPw) valPw.textContent = "••••••••";
+      if (valStatus) valStatus.textContent = c.status || (c.isRunning ? "Running" : "Stopped");
+
+      // Container buttons
+      const btnStop = document.getElementById("btn-stop");
+      const btnRestart = document.getElementById("btn-restart");
+      if (btnStop) btnStop.style.display = c.isRunning ? "inline-flex" : "none";
+      if (btnRestart) btnRestart.style.display = c.isRunning ? "inline-flex" : "none";
+
+      // JDBC Input: retain user's edited/appended URL if available!
+      const jdbcInput = document.getElementById("jdbc-input");
+      if (jdbcInput) {
+        if (state.customJdbcUrls[c.name]) {
+          jdbcInput.value = state.customJdbcUrls[c.name];
+        } else {
+          jdbcInput.value = c.jdbcUrl || "";
+        }
+      }
+
+      // Update Driver Section
+      updateDriverSection(c.engine);
+
+      // Load tables into tree if missing
+      fetchContainerSchema(c);
+
+      // Update tree active highlight
+      renderTree();
+
+      // Set default preset query in editor if empty
+      const editor = document.getElementById("sql-editor");
+      if (editor && !editor.value.trim() && forceInitial) {
+        presetQuery("sample");
+      }
+    }
+
+    function selectTable(cname, schema, table) {
+      const c = state.containers.find(x => x.name === cname);
+      if (c) selectContainer(c);
+
+      state.selectedTable = { container: c, schema, table };
+
+      // Update context breadcrumb
+      const ctxInfo = document.getElementById("table-context-info");
+      const ctxName = document.getElementById("context-table-name");
+      if (ctxName) ctxName.textContent = `${schema}.${table}`;
+      if (ctxInfo) ctxInfo.style.display = "block";
+
+      // Render view based on active tab
+      if (state.activeTab === "structure") {
+        loadTableStructure(c, schema, table);
+      } else if (state.activeTab === "data") {
+        loadTableData(c, schema, table);
+      } else {
+        const target = (schema && schema !== "public" && schema !== "default") ? `${schema}.${table}` : table;
+        const editor = document.getElementById("sql-editor");
+        if (editor) {
+          editor.value = `SELECT * FROM ${target} LIMIT 50;`;
+          runQuery();
+        }
+      }
+
+      renderTree();
+    }
+
+    function switchViewTab(tab) {
+      state.activeTab = tab;
+
+      // Update tab buttons
+      ["data", "structure", "sql"].forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        if (btn) {
+          if (t === tab) btn.classList.add("active");
+          else btn.classList.remove("active");
+        }
+      });
+
+      const sqlBox = document.getElementById("sql-console-container");
+      const dataBox = document.getElementById("data-results-container");
+      const structBox = document.getElementById("structure-results-container");
+
+      if (tab === "structure") {
+        if (sqlBox) sqlBox.style.display = "none";
+        if (dataBox) dataBox.style.display = "none";
+        if (structBox) structBox.style.display = "flex";
+
+        if (state.selectedTable) {
+          loadTableStructure(state.selectedTable.container, state.selectedTable.schema, state.selectedTable.table);
+        }
+      } else if (tab === "data") {
+        if (sqlBox) sqlBox.style.display = "block";
+        if (dataBox) dataBox.style.display = "flex";
+        if (structBox) structBox.style.display = "none";
+
+        if (state.selectedTable) {
+          loadTableData(state.selectedTable.container, state.selectedTable.schema, state.selectedTable.table);
+        }
+      } else { // sql
+        if (sqlBox) sqlBox.style.display = "block";
+        if (dataBox) dataBox.style.display = "flex";
+        if (structBox) structBox.style.display = "none";
+      }
+    }
+
+    async function loadTableStructure(c, schema, table) {
+      const meta = document.getElementById("structure-meta");
+      const countEl = document.getElementById("structure-count");
+      const emptyState = document.getElementById("structure-empty-state");
+      const errorBox = document.getElementById("structure-error-box");
+      const structTable = document.getElementById("structure-table");
+      const tbody = document.getElementById("structure-tbody");
+
+      if (meta) meta.textContent = `Structure of ${schema}.${table}`;
+      if (emptyState) {
+        emptyState.textContent = "Loading columns & types...";
+        emptyState.style.display = "flex";
+      }
+      if (errorBox) errorBox.style.display = "none";
+      if (structTable) structTable.style.display = "none";
+      if (tbody) tbody.innerHTML = "";
+
+      try {
+        const res = await fetch(`/api/table-structure?container=${encodeURIComponent(c.name)}&engine=${encodeURIComponent(c.engine)}&schema=${encodeURIComponent(schema)}&table=${encodeURIComponent(table)}`);
+        const data = await res.json();
+
+        if (data.status !== "ok" || !data.columns) {
+          throw new Error(data.message || "Failed to load columns");
+        }
+
+        const cols = data.columns;
+        if (countEl) countEl.textContent = `(${cols.length} columns)`;
+
+        if (cols.length === 0) {
+          if (emptyState) {
+            emptyState.textContent = "No columns metadata available for this table.";
+            emptyState.style.display = "flex";
+          }
+          return;
+        }
+
+        cols.forEach((col, idx) => {
+          const tr = document.createElement("tr");
+
+          const isPrimary = (col.is_primary || "").toUpperCase() === "YES";
+          const isNullable = (col.is_nullable || "").toUpperCase() === "YES";
+
+          tr.innerHTML = `
+            <td style="color:var(--text-muted); font-size:0.75rem;">${idx + 1}</td>
+            <td style="font-weight:600; font-family:var(--font-mono);">${col.column_name}</td>
+            <td><span class="type-badge">${col.data_type}</span></td>
+            <td>${isNullable ? '<span style="color:var(--text-muted)">YES</span>' : '<span style="color:var(--accent-yellow); font-weight:600;">NO</span>'}</td>
+            <td>${isPrimary ? '<span class="key-badge">🔑 PRIMARY</span>' : '-'}</td>
+            <td style="font-family:var(--font-mono); font-size:0.8rem; color:var(--text-secondary);">${col.column_default || '-'}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        if (emptyState) emptyState.style.display = "none";
+        if (structTable) structTable.style.display = "table";
+      } catch (err) {
+        if (emptyState) emptyState.style.display = "none";
+        if (errorBox) {
+          errorBox.textContent = `Error loading structure: ${err.message}`;
+          errorBox.style.display = "block";
+        }
+      }
+    }
+
+    function loadTableData(c, schema, table) {
+      const target = (schema && schema !== "public" && schema !== "default") ? `${schema}.${table}` : table;
+      const editor = document.getElementById("sql-editor");
+      if (editor) {
+        editor.value = `SELECT * FROM ${target} LIMIT 50;`;
+        runQuery();
+      }
+    }
+
+    async function rescanAllContainers(showToastMsg = true) {
+      const btn = document.getElementById("btn-rescan-header");
+      if (btn) btn.textContent = "🔄 Rescanning...";
+
+      // Clear schema cache so fresh structure is fetched
+      state.treeSchemas = {};
+
+      try {
+        const [cRes, dRes] = await Promise.all([
+          fetch("/api/containers"),
+          fetch("/api/drivers")
+        ]);
+        const cData = await cRes.json();
+        const dData = await dRes.json();
+
+        state.containers = cData.containers || [];
+        state.drivers = dData.drivers || {};
+
+        renderTree();
+
+        // If previously selected container is still running, refresh its schemas
+        if (state.selectedContainer) {
+          const current = state.containers.find(x => x.name === state.selectedContainer.name);
+          if (current) {
+            await fetchContainerSchema(current, true);
+          } else if (state.containers.length > 0) {
+            selectContainer(state.containers[0]);
+          } else {
+            showEmptyDatabaseState();
+          }
+        } else if (state.containers.length > 0) {
+          selectContainer(state.containers[0]);
+        }
+
+        if (showToastMsg) {
+          showToast(`✓ Rescanned containers: ${state.containers.length} active database(s) found. Tree navigator updated.`);
+        }
+      } catch (err) {
+        showToast("Error scanning databases: " + err.message, true);
+      } finally {
+        if (btn) btn.textContent = "🔄 Rescan Running DBs";
+      }
+    }
+
+    async function loadAllData(showToastMsg = false) {
+      try {
+        const [cRes, dRes] = await Promise.all([
+          fetch("/api/containers"),
+          fetch("/api/drivers")
+        ]);
+        if (!cRes.ok || !dRes.ok) return;
+
+        const containersData = await cRes.json();
+        const driversData = await dRes.json();
+
+        state.containers = containersData.containers || [];
+        state.drivers = driversData.drivers || {};
+
+        // If currently selected container still exists, preserve selection and user's edited JDBC URL!
+        if (state.selectedContainer) {
+          const existing = state.containers.find(c => c.name === state.selectedContainer.name);
+          if (existing) {
+            state.selectedContainer.status = existing.status;
+            state.selectedContainer.isRunning = existing.isRunning;
+
+            const valStatus = document.getElementById("val-status");
+            if (valStatus) valStatus.textContent = existing.status || (existing.isRunning ? "Running" : "Stopped");
+
+            renderTree();
+            return;
+          }
+        }
+
+        // Only if no container is selected or previous was removed, select first container
+        if (state.containers.length > 0) {
+          selectContainer(state.containers[0]);
+        } else {
+          showEmptyDatabaseState();
+        }
+
+        renderTree();
+      } catch (err) {
+        if (showToastMsg) {
+          showToast("Error updating database list: " + err.message, true);
+        }
+      }
+    }
+
+    function showEmptyDatabaseState() {
+      const titleEl = document.getElementById("selected-db-title");
+      if (titleEl) titleEl.textContent = "No Running Database Detected";
+      const badge = document.getElementById("selected-db-badge");
+      if (badge) badge.style.display = "none";
+      const valPort = document.getElementById("val-port");
+      if (valPort) valPort.textContent = "-";
+      const valDb = document.getElementById("val-dbname");
+      if (valDb) valDb.textContent = "-";
+      const valUser = document.getElementById("val-user");
+      if (valUser) valUser.textContent = "-";
+      const valPw = document.getElementById("val-password");
+      if (valPw) valPw.textContent = "-";
+      const valStatus = document.getElementById("val-status");
+      if (valStatus) valStatus.textContent = "None";
+      const jdbcInput = document.getElementById("jdbc-input");
+      if (jdbcInput) jdbcInput.value = "";
+    }
+
+    function togglePasswordVisibility() {
+      const el = document.getElementById("val-password");
+      if (!el) return;
+      state.showPassword = !state.showPassword;
+      el.textContent = state.showPassword ? state.rawPassword : "••••••••";
+    }
+
+    function appendJdbcParam(param) {
+      const input = document.getElementById("jdbc-input");
+      if (!input || !state.selectedContainer) return;
+      let url = input.value || state.selectedContainer.jdbcUrl || "";
+      const delimiter = url.includes("?") ? "&" : (url.includes(";") ? ";" : "?");
+      url = url + delimiter + param;
+      input.value = url;
+      state.customJdbcUrls[state.selectedContainer.name] = url;
+      showToast(`Appended '${param}' to JDBC URL (retained).`);
+    }
+
+    function resetJdbcUrl() {
+      if (state.selectedContainer) {
+        delete state.customJdbcUrls[state.selectedContainer.name];
+        const input = document.getElementById("jdbc-input");
+        if (input) input.value = state.selectedContainer.jdbcUrl || "";
+        const box = document.getElementById("reconnect-status-box");
+        if (box) box.style.display = "none";
+        showToast("Reset JDBC URL to default.");
+      }
+    }
+
+    async function reconnectDatabase() {
+      if (!state.selectedContainer) {
+        showToast("Please select a database container first.", true);
+        return;
+      }
+
+      const btn = document.getElementById("btn-reconnect");
+      const box = document.getElementById("reconnect-status-box");
+      const input = document.getElementById("jdbc-input");
+      if (!input) return;
+
+      const modifiedUrl = input.value.trim();
+      if (!modifiedUrl) {
+        showToast("JDBC URL cannot be empty.", true);
+        return;
+      }
+
+      if (btn) {
+        btn.textContent = "⏳ Reconnecting...";
+        btn.disabled = true;
+      }
+      if (box) {
+        box.style.display = "block";
+        box.innerHTML = `<div style="padding:8px 12px; background:rgba(2, 132, 199, 0.15); border:1px solid rgba(2, 132, 199, 0.3); border-radius:6px; font-size:0.83rem; color:var(--accent-cyan);">⏳ Validating connection and running probe handshake...</div>`;
+      }
+
+      try {
+        const res = await fetch("/api/reconnect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            container: state.selectedContainer.name,
+            engine: state.selectedContainer.engine,
+            jdbcUrl: modifiedUrl,
+            user: state.selectedContainer.user,
+            password: state.rawPassword
+          })
+        });
+
+        const data = await res.json();
+
+        if (data.status === "ok") {
+          // Update container parameters
+          const parsed = data.parsed || {};
+          if (parsed.host) {
+            state.selectedContainer.host = parsed.host;
+            const el = document.getElementById("val-host");
+            if (el) el.textContent = parsed.host;
+          }
+          if (parsed.port) {
+            state.selectedContainer.port = parsed.port;
+            const el = document.getElementById("val-port");
+            if (el) el.textContent = parsed.port;
+          }
+          if (parsed.database) {
+            state.selectedContainer.database = parsed.database;
+            const el = document.getElementById("val-dbname");
+            if (el) el.textContent = parsed.database;
+          }
+
+          // Mark connected and store custom URL
+          state.connectedDbs[state.selectedContainer.name] = true;
+          state.customJdbcUrls[state.selectedContainer.name] = modifiedUrl;
+
+          // Clear schema cache for this container and re-fetch
+          delete state.treeSchemas[state.selectedContainer.name];
+          await fetchContainerSchema(state.selectedContainer, true);
+
+          if (box) {
+            box.style.display = "block";
+            box.innerHTML = `
+              <div style="padding:10px 14px; background:rgba(16, 185, 129, 0.15); border:1px solid rgba(16, 185, 129, 0.4); border-radius:6px; font-size:0.85rem; color:var(--accent-green); display:flex; align-items:center; gap:8px;">
+                <span>✓</span>
+                <div>
+                  <b>Connected Successfully!</b> Handshake verified to <code>${parsed.host || '127.0.0.1'}:${parsed.port || '-'}/${parsed.database || '-'}</code> (Latency: ${parsed.latencyMs || 0} ms).
+                </div>
+              </div>
+            `;
+          }
+          showToast("✓ Successfully connected to database!");
+        } else {
+          // Failure with detailed error
+          if (box) {
+            box.style.display = "block";
+            box.innerHTML = `
+              <div class="error-banner" style="display:block; margin:0;">
+                <div style="font-weight:700; font-size:0.9rem; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+                  <span>❌ Connection Failed</span>
+                </div>
+                <div style="font-size:0.85rem; margin-bottom:8px;">${data.message || 'Could not connect with the modified JDBC parameters.'}</div>
+                <pre style="background:rgba(0,0,0,0.55); padding:10px 12px; border-radius:6px; font-family:var(--font-mono); font-size:0.78rem; overflow-x:auto; white-space:pre-wrap; color:#fca5a5; border:1px solid rgba(239, 68, 68, 0.3);">${data.details || 'Check host, port, database name, and credentials.'}</pre>
+              </div>
+            `;
+          }
+          showToast("❌ Connection failed. See details below.", true);
+        }
+      } catch (err) {
+        if (box) {
+          box.style.display = "block";
+          box.innerHTML = `
+            <div class="error-banner" style="display:block; margin:0;">
+              <div style="font-weight:700;">❌ Network / Request Error</div>
+              <pre style="background:rgba(0,0,0,0.5); padding:8px; border-radius:4px; font-size:0.8rem; color:#fca5a5;">${err.message}</pre>
+            </div>
+          `;
+        }
+        showToast("Error testing connection: " + err.message, true);
+      } finally {
+        if (btn) {
+          btn.textContent = "🔌 Reconnect";
+          btn.disabled = false;
+        }
+      }
+    }
+
+    function copyJdbcUrl() {
+      const input = document.getElementById("jdbc-input");
+      if (!input || !input.value) return;
+      navigator.clipboard.writeText(input.value).then(() => {
+        showToast("Copied JDBC URL to clipboard!");
+      });
+    }
+
+    function updateDriverSection(engineKey) {
+      const driver = state.drivers[engineKey] || state.drivers["postgres"];
+      if (!driver) return;
+
+      const nameEl = document.getElementById("driver-display-name");
+      const classEl = document.getElementById("driver-class-name");
+      const mavenEl = document.getElementById("driver-maven-coords");
+      const portalLink = document.getElementById("driver-portal-link");
+      const badge = document.getElementById("driver-status-badge");
+
+      if (nameEl) nameEl.textContent = `${driver.displayName} JDBC Driver (v${driver.version})`;
+      if (classEl) classEl.textContent = `Class: ${driver.driverClass}`;
+      if (mavenEl) mavenEl.textContent = `Maven: ${driver.mavenCoords}`;
+      if (portalLink) portalLink.href = driver.portalUrl;
+
+      if (badge) {
+        if (driver.isDownloaded) {
+          badge.className = "driver-status-badge badge-installed";
+          badge.textContent = `✓ Cached locally in lib/ (${driver.fileName})`;
+        } else {
+          badge.className = "driver-status-badge badge-missing";
+          badge.textContent = `Ready to download (${driver.fileName})`;
+        }
+      }
+    }
+
+    async function downloadDriverToLib() {
+      if (!state.selectedContainer) return;
+      const engine = state.selectedContainer.engine;
+      const btn = document.getElementById("btn-save-lib");
+      if (!btn) return;
+      const origText = btn.textContent;
+      btn.textContent = "⏳ Downloading...";
+      btn.disabled = true;
+
+      try {
+        const res = await fetch("/api/download-driver", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ engine })
+        });
+        const data = await res.json();
+        if (data.status === "ok") {
+          showToast(`Successfully saved ${data.fileName} to SpinDB lib/ !`);
+          await loadAllData();
+        } else {
+          showToast(`Download failed: ${data.message}`, true);
+        }
+      } catch (err) {
+        showToast(`Download error: ${err.message}`, true);
+      } finally {
+        btn.textContent = origText;
+        btn.disabled = false;
+      }
+    }
+
+    function downloadDriverBrowser() {
+      if (!state.selectedContainer) return;
+      const engine = state.selectedContainer.engine;
+      window.open(`/api/download-jar?engine=${engine}`, "_blank");
+      showToast("Starting driver .JAR browser download...");
+    }
+
+    async function runQuery() {
+      if (!state.selectedContainer) {
+        showToast("Please select a running database first.", true);
+        return;
+      }
+
+      const editor = document.getElementById("sql-editor");
+      const query = editor ? editor.value.trim() : "";
+      if (!query) {
+        showToast("Query cannot be empty.", true);
+        return;
+      }
+
+      const errorBox = document.getElementById("error-box");
+      const resultTable = document.getElementById("result-table");
+      const emptyState = document.getElementById("empty-state");
+      const meta = document.getElementById("results-meta");
+      const timer = document.getElementById("results-timer");
+
+      if (meta) meta.textContent = "Executing query...";
+      if (timer) timer.textContent = "";
+      if (errorBox) errorBox.style.display = "none";
+
+      try {
+        const res = await fetch("/api/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            container: state.selectedContainer.name,
+            engine: state.selectedContainer.engine,
+            query: query
+          })
+        });
+
+        const data = await res.json();
+        state.lastQueryResult = data;
+
+        if (data.status === "error") {
+          if (meta) meta.textContent = "Query execution error";
+          if (timer) timer.textContent = "";
+          if (emptyState) emptyState.style.display = "none";
+          if (resultTable) resultTable.style.display = "none";
+          if (errorBox) {
+            errorBox.textContent = data.message;
+            errorBox.style.display = "block";
+          }
+          return;
+        }
+
+        // Render table
+        if (meta) meta.textContent = `Success: Returned ${data.rowCount} row${data.rowCount === 1 ? '' : 's'}`;
+        if (timer) timer.textContent = `⏱ ${data.executionTimeMs} ms`;
+        if (emptyState) emptyState.style.display = "none";
+        if (errorBox) errorBox.style.display = "none";
+
+        renderResultGrid(data.columns, data.rows);
+      } catch (err) {
+        if (meta) meta.textContent = "Network Error";
+        if (errorBox) {
+          errorBox.textContent = err.message;
+          errorBox.style.display = "block";
+        }
+      }
+    }
+
+    function renderResultGrid(columns, rows) {
+      const thead = document.getElementById("result-thead");
+      const tbody = document.getElementById("result-tbody");
+      const table = document.getElementById("result-table");
+      if (!thead || !tbody || !table) return;
+
+      thead.innerHTML = "";
+      tbody.innerHTML = "";
+
+      const trHead = document.createElement("tr");
+      const thIdx = document.createElement("th");
+      thIdx.textContent = "#";
+      thIdx.style.width = "40px";
+      trHead.appendChild(thIdx);
+
+      columns.forEach(col => {
+        const th = document.createElement("th");
+        th.textContent = col;
+        trHead.appendChild(th);
+      });
+      thead.appendChild(trHead);
+
+      rows.forEach((row, i) => {
+        const tr = document.createElement("tr");
+        const tdIdx = document.createElement("td");
+        tdIdx.textContent = i + 1;
+        tdIdx.style.color = "var(--text-muted)";
+        tr.appendChild(tdIdx);
+
+        row.forEach(val => {
+          const td = document.createElement("td");
+          td.textContent = (val === null || val === undefined) ? "NULL" : val;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+
+      table.style.display = "table";
+    }
+
+    function presetQuery(type) {
+      const editor = document.getElementById("sql-editor");
+      if (!editor) return;
+      const engine = state.selectedContainer ? state.selectedContainer.engine : "postgres";
+
+      if (type === "tables") {
+        if (engine === "clickhouse") editor.value = "SHOW TABLES;";
+        else if (engine === "mysql" || engine === "mariadb") editor.value = "SHOW TABLES;";
+        else if (engine === "redis") editor.value = "KEYS *";
+        else if (engine === "mongodb") editor.value = "db.getCollectionNames();";
+        else editor.value = "SELECT table_schema, table_name FROM information_schema.tables WHERE table_schema NOT IN ('information_schema', 'pg_catalog') ORDER BY table_name;";
+      } else if (type === "version") {
+        if (engine === "postgres" || engine === "pgvector" || engine === "cockroach") editor.value = "SELECT version();";
+        else if (engine === "mysql" || engine === "mariadb") editor.value = "SELECT VERSION(), CURRENT_USER();";
+        else if (engine === "clickhouse") editor.value = "SELECT version();";
+        else if (engine === "mssql") editor.value = "SELECT @@VERSION;";
+        else if (engine === "redis") editor.value = "INFO SERVER";
+        else editor.value = "SELECT 1;";
+      } else if (type === "sample") {
+        if (engine === "redis") editor.value = "SET test_key 'Hello from SpinDB Web Studio'\nGET test_key";
+        else if (engine === "mongodb") editor.value = "db.test_collection.insertOne({ name: 'SpinDB', created_at: new Date() })";
+        else editor.value = "SELECT 1 AS id, 'SpinDB' AS name, NOW() AS launched_at;";
+      }
+    }
+
+    function clearEditor() {
+      const editor = document.getElementById("sql-editor");
+      if (editor) editor.value = "";
+      const table = document.getElementById("result-table");
+      if (table) table.style.display = "none";
+      const emptyState = document.getElementById("empty-state");
+      if (emptyState) emptyState.style.display = "flex";
+      const errorBox = document.getElementById("error-box");
+      if (errorBox) errorBox.style.display = "none";
+      const meta = document.getElementById("results-meta");
+      if (meta) meta.textContent = "Editor cleared";
+      const timer = document.getElementById("results-timer");
+      if (timer) timer.textContent = "";
+    }
+
+    function exportResultsCsv() {
+      if (!state.lastQueryResult || !state.lastQueryResult.columns) {
+        showToast("No query results to export.", true);
+        return;
+      }
+      const cols = state.lastQueryResult.columns;
+      const rows = state.lastQueryResult.rows;
+      let csvContent = "data:text/csv;charset=utf-8," + cols.join(",") + "\n";
+      rows.forEach(r => {
+        csvContent += r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",") + "\n";
+      });
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `spindb_query_export_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("Exported results to CSV!");
+    }
+
+    async function handleContainerAction(action) {
+      if (!state.selectedContainer) return;
+      const name = state.selectedContainer.name;
+      showToast(`Executing ${action} on container '${name}'...`);
+      try {
+        const res = await fetch("/api/container-action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, name })
+        });
+        const data = await res.json();
+        if (data.status === "ok") {
+          showToast(`Container '${name}' ${action}ed successfully.`);
+          await loadAllData();
+        } else {
+          showToast(`Action failed: ${data.message}`, true);
+        }
+      } catch (err) {
+        showToast(`Failed: ${err.message}`, true);
+      }
+    }
+
+    function openSpinModal() {
+      const modal = document.getElementById("spin-modal");
+      if (modal) modal.classList.add("show");
+      updateSpinDefaults();
+    }
+    function closeSpinModal() {
+      const modal = document.getElementById("spin-modal");
+      if (modal) modal.classList.remove("show");
+    }
+    function updateSpinDefaults() {
+      const engSelect = document.getElementById("spin-engine");
+      const portInput = document.getElementById("spin-port");
+      if (!engSelect || !portInput) return;
+      const eng = engSelect.value;
+      const defaultPort = (state.drivers[eng] && state.drivers[eng].defaultPort) || "";
+      portInput.placeholder = `Default: ${defaultPort} (or leave empty)`;
+    }
+
+    async function submitSpinDB() {
+      const engSelect = document.getElementById("spin-engine");
+      const nameInput = document.getElementById("spin-name");
+      const portInput = document.getElementById("spin-port");
+      const verInput = document.getElementById("spin-version");
+
+      const engine = engSelect ? engSelect.value : "postgres";
+      const name = nameInput ? nameInput.value.trim() : "";
+      const port = portInput ? portInput.value.trim() : "";
+      const version = verInput ? (verInput.value.trim() || "latest") : "latest";
+
+      const btn = document.getElementById("btn-spin-submit");
+      if (btn) {
+        btn.textContent = "🚀 Spinning...";
+        btn.disabled = true;
+      }
+
+      try {
+        const res = await fetch("/api/spin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ engine, name, port, version })
+        });
+        const data = await res.json();
+        if (data.status === "ok") {
+          showToast(`Successfully launched ${engine} database!`);
+          closeSpinModal();
+          setTimeout(() => rescanAllContainers(false), 2000);
+        } else {
+          showToast(`Spin failed: ${data.message}`, true);
+        }
+      } catch (err) {
+        showToast(`Spin error: ${err.message}`, true);
+      } finally {
+        if (btn) {
+          btn.textContent = "🚀 Launch Container";
+          btn.disabled = false;
+        }
+      }
+    }
+
+    function showToast(msg, isError = false) {
+      const t = document.getElementById("toast");
+      if (!t) return;
+      t.textContent = msg;
+      t.style.backgroundColor = isError ? "var(--accent-red)" : "var(--accent-emerald)";
+      t.classList.add("show");
+      setTimeout(() => t.classList.remove("show"), 3500);
+    }
+  </script>
+</body>
+</html>

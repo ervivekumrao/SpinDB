@@ -94,10 +94,18 @@ ${CLR_BOLD}CONTAINER LIFECYCLE & DISCOVERY SUBCOMMANDS:${CLR_RESET}
   spinctl connect <name>           Launch interactive client shell inside container
   spinctl env <name>               Print connection strings and environment variables
   spinctl versions [vendor] [filter] List available database image versions & variants
+  spinctl studio [options]         Launch browser-based SQL Client UI (DBeaver-style Web Studio)
+  spinctl ui [name]                Alias for studio (pre-select specific database)
 
 ${CLR_BOLD}EXAMPLES:${CLR_RESET}
   # Spin up PostgreSQL 16 on port 5432:
   spinctl -t postgres -v 16 -p 5432 -n dev-pg
+
+  # Launch SpinDB Web Studio (Browser-based SQL Client UI):
+  spinctl studio
+
+  # Open Web Studio targeting a specific database container:
+  spinctl ui dev-pg
 
   # Spin up PostgreSQL 16.1 on auto-allocated port:
   spinctl -t postgres -v 16.1
@@ -123,7 +131,7 @@ EOF
 # Check for lifecycle and discovery subcommands first
 if [[ "$#" -gt 0 ]]; then
   case "${1,,}" in
-    status|start|restart|stop|logs|rm|remove|connect|cli|env|versions|list-versions|list_versions)
+    status|start|restart|stop|logs|rm|remove|connect|cli|env|versions|list-versions|list_versions|studio|ui|web)
       handle_lifecycle_command "$@"
       ;;
   esac

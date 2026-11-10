@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 
-.PHONY: help preflight check lint test test-unit test-smoke test-concurrent status clean stop
+.PHONY: help preflight check lint test test-unit test-smoke test-concurrent status clean stop studio ui
 
 help:
 	@echo "SpinDB (spinctl) - Automation & Orchestration Tasks"
@@ -16,6 +16,8 @@ help:
 	@echo "  test-smoke      Run regression smoke tests only"
 	@echo "  test-concurrent Run real-time high-concurrency production stress tests"
 	@echo "  status          Show running database containers"
+	@echo "  studio          Launch browser-based SQL Client UI (DBeaver-style Web Studio)"
+	@echo "  ui              Alias for studio"
 	@echo "  stop            Stop all running database containers"
 	@echo "  clean           Safely prune dangling build cache"
 	@echo ""
@@ -53,6 +55,9 @@ test-concurrent:
 
 status:
 	@./bin/spinctl status
+
+studio ui:
+	@./bin/spinctl studio
 
 mysql:
 	@./bin/spinctl -t mysql -p 3306 -n local-mysql

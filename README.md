@@ -114,6 +114,12 @@ Control database containers without remembering engine-specific syntax:
 # Launch interactive database client shell directly inside container
 ./bin/spinctl connect <name>
 
+# Launch SpinDB Web Studio (Browser-based SQL Client & Database Management UI)
+./bin/spinctl studio
+
+# Launch Web Studio pre-selecting a specific container
+./bin/spinctl ui <name>
+
 # Export connection strings & environment variables (.env format)
 ./bin/spinctl env <name>
 
@@ -171,6 +177,31 @@ View all running variants side-by-side:
 ```bash
 ./bin/spinctl status
 ```
+
+---
+
+## SpinDB Web Studio (Browser-Based SQL Client UI)
+
+SpinDB includes a built-in, zero-dependency browser-based database management studio and SQL query client inspired by **DBeaver**:
+
+```bash
+# Launch SpinDB Web Studio:
+./bin/spinctl studio
+
+# Or pre-select a specific container:
+./bin/spinctl ui postgres-16.1-5432
+
+# Or launch via Makefile:
+make studio
+```
+
+The studio opens in your browser at `http://localhost:8080` and provides:
+- 🔍 **Auto-Detection of All Running Databases:** Discovers and displays all active SpinDB containers (PostgreSQL, MySQL, MariaDB, SQL Server, ClickHouse, CockroachDB, Mongo, Redis, etc.) with real-time health and port allocations.
+- ⚡ **Interactive SQL Query Runner:** Execute SQL queries with `Ctrl+Enter`, view tabular results with column headers, row counts, execution timings, and CSV export.
+- 📊 **Database & Schema Explorer:** Live table and schema inspector. Clicking any table auto-populates `SELECT * FROM ... LIMIT 50;` into the query editor.
+- 📋 **Live Connection Parameters:** Instant visibility of Host, Port, Database name, User, Password (with reveal toggle), and container status.
+- ✏️ **Interactive & Editable JDBC URL Bar:** Pre-populates the exact driver URL format, lets users customize parameters (e.g. `?sslmode=disable`, `allowPublicKeyRetrieval=true`), and copy to clipboard in one click.
+- 📦 **Official JDBC Driver Center:** One-click downloads for official JDBC `.jar` drivers directly from Maven Central or direct vendor portals across all 13 supported engines.
 
 ---
 
