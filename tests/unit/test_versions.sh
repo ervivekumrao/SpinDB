@@ -144,10 +144,36 @@ test_cli_versions_command_execution() {
   assert_contains "${filter_out}" "16.1" "Filtered versions missing 16.1"
 }
 
+test_cli_versions_json_format() {
+  local json_pg
+  json_pg="$("${PROJECT_ROOT}/bin/spinctl" versions postgres --json)"
+  assert_contains "${json_pg}" '"status": "success"' "Postgres JSON missing success status"
+  assert_contains "${json_pg}" '"engine": "postgres"' "Postgres JSON missing engine key"
+  assert_contains "${json_pg}" '"defaultMajor": "16"' "Postgres JSON missing defaultMajor 16"
+  assert_contains "${json_pg}" '"majorVersions":' "Postgres JSON missing majorVersions"
+  assert_contains "${json_pg}" '"subVersions":' "Postgres JSON missing subVersions"
+
+  # Validate JSON syntax with python3
+  if ! echo "${json_pg}" | python3 -m json.tool >/dev/null 2>&1; then
+    echo "Postgres versions --json output is not valid JSON" >&2
+    return 1
+  fi
+
+  local json_redis
+  json_redis="$("${PROJECT_ROOT}/bin/spinctl" versions redis --json)"
+  assert_contains "${json_redis}" '"engine": "redis"' "Redis JSON missing engine key"
+  if ! echo "${json_redis}" | python3 -m json.tool >/dev/null 2>&1; then
+    echo "Redis versions --json output is not valid JSON" >&2
+    return 1
+  fi
+}
+
 run_test "Curated catalogs exist for all 13 supported engines" test_curated_catalogs_exist_for_all_13_engines
 run_test "Normalize vendor-specific engine tags (pgvector, mssql, cockroach)" test_version_tag_normalization
 run_test "Multi-variant instance naming (postgres-16.1-5432) & backward compatibility" test_multi_variant_instance_naming
 run_test "12h/24h TTL cache parsing, write, read & invalidation" test_ttl_cache_parsing_and_invalidation
 run_test "CLI 'spinctl versions' subcommand execution & filtering" test_cli_versions_command_execution
+run_test "CLI 'spinctl versions <engine> --json' machine-readable format" test_cli_versions_json_format
 
 test_suite_end
+

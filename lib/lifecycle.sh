@@ -49,18 +49,25 @@ handle_lifecycle_command() {
       local filter="${3:-}"
       local refresh=false
       local offline=false
+      local json_mode=false
       for arg in "$@"; do
         if [[ "${arg,,}" == "--refresh" || "${arg,,}" == "--no-cache" ]]; then
           refresh=true
         elif [[ "${arg,,}" == "--offline" ]]; then
           offline=true
+        elif [[ "${arg,,}" == "--json" ]]; then
+          json_mode=true
         fi
       done
-      if [[ "${engine,,}" == "--refresh" || "${engine,,}" == "--no-cache" || "${engine,,}" == "--offline" ]]; then
+      if [[ "${engine,,}" == "--refresh" || "${engine,,}" == "--no-cache" || "${engine,,}" == "--offline" || "${engine,,}" == "--json" ]]; then
         engine=""
       fi
-      if [[ "${filter,,}" == "--refresh" || "${filter,,}" == "--no-cache" || "${filter,,}" == "--offline" ]]; then
+      if [[ "${filter,,}" == "--refresh" || "${filter,,}" == "--no-cache" || "${filter,,}" == "--offline" || "${filter,,}" == "--json" ]]; then
         filter=""
+      fi
+      if [[ "${json_mode}" == "true" ]]; then
+        get_engine_versions_json "${engine:-postgres}"
+        exit 0
       fi
       if [[ -z "${engine}" || "${engine}" == "all" ]]; then
         list_all_supported_engines_matrix "${refresh}" "${offline}"

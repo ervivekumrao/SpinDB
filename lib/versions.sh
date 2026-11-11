@@ -382,6 +382,71 @@ get_curated_subversions() {
   esac
 }
 
+get_curated_subversions_for_major() {
+  local engine="$1"
+  local major="$2"
+  case "${engine}:${major}" in
+    postgres:17) echo "17.1, 17.0, 17-alpine, 17" ;;
+    postgres:16) echo "16.6, 16.5, 16.4, 16.3, 16.2, 16.1, 16.0, 16-alpine, 16" ;;
+    postgres:15) echo "15.10, 15.9, 15.8, 15.7, 15.6, 15.5, 15.4, 15.3, 15.2, 15.1, 15.0, 15-alpine, 15" ;;
+    postgres:14) echo "14.15, 14.14, 14.10, 14.5, 14.1, 14-alpine, 14" ;;
+    postgres:13) echo "13.18, 13.14, 13.10, 13-alpine, 13" ;;
+    postgres:12) echo "12.20, 12.18, 12.16, 12" ;;
+
+    mysql:8.4)  echo "8.4.3, 8.4.2, 8.4.1, 8.4.0, 8.4" ;;
+    mysql:8.0)  echo "8.0.40, 8.0.39, 8.0.36, 8.0.35, 8.0.34, 8.0.33, 8.0.32, 8.0" ;;
+    mysql:9.1)  echo "9.1.0, 9.0.1, 9.1" ;;
+    mysql:5.7)  echo "5.7.44, 5.7.43, 5.7" ;;
+
+    mariadb:11.4)  echo "11.4.4, 11.4.3, 11.4.2, 11.4" ;;
+    mariadb:10.11) echo "10.11.10, 10.11.9, 10.11.8, 10.11.7, 10.11" ;;
+    mariadb:10.6)  echo "10.6.20, 10.6.19, 10.6.18, 10.6" ;;
+    mariadb:11.6)  echo "11.6.2, 11.6.1, 11.6" ;;
+
+    pgvector:pg17) echo "pg17-v0.8.0, pg17" ;;
+    pgvector:pg16) echo "pg16-v0.8.0, pg16-v0.7.4, pg16" ;;
+    pgvector:pg15) echo "pg15-v0.8.0, pg15-v0.7.4, pg15" ;;
+    pgvector:pg14) echo "pg14-v0.8.0, pg14-v0.7.4, pg14" ;;
+
+    mssql:2022-latest) echo "2022-CU16-ubuntu-22.04, 2022-CU15-ubuntu-22.04, 2022-CU14-ubuntu-22.04, 2022-latest" ;;
+    mssql:2019-latest) echo "2019-CU28-ubuntu-20.04, 2019-CU27-ubuntu-20.04, 2019-latest" ;;
+    mssql:2017-latest) echo "2017-CU31-ubuntu-16.04, 2017-latest" ;;
+
+    mongodb:8.0) echo "8.0.3, 8.0.1, 8.0.0, 8.0" ;;
+    mongodb:7.0) echo "7.0.15, 7.0.14, 7.0.12, 7.0.8, 7.0.5, 7.0" ;;
+    mongodb:6.0) echo "6.0.19, 6.0.18, 6.0.16, 6.0.14, 6.0.12, 6.0" ;;
+    mongodb:5.0) echo "5.0.29, 5.0.28, 5.0.26, 5.0" ;;
+
+    redis:7-alpine) echo "7-alpine, 7.4-alpine, 7.2-alpine, 7.0-alpine" ;;
+    redis:7.4)      echo "7.4.1, 7.4.0, 7.4" ;;
+    redis:7.2)      echo "7.2.6, 7.2.5, 7.2.4, 7.2.3, 7.2, 7.2-alpine" ;;
+    redis:6-alpine) echo "6.2.16, 6.2.14, 6.2-alpine, 6-alpine" ;;
+
+    clickhouse:24.8)     echo "24.8.4.13, 24.8.3, 24.8.2, 24.8" ;;
+    clickhouse:24.3-lts) echo "24.3.12.75-lts, 24.3.8-lts, 24.3.6-lts, 24.3-lts" ;;
+    clickhouse:23.8-lts) echo "23.8.16.41-lts, 23.8.12-lts, 23.8.9-lts, 23.8-lts" ;;
+
+    cockroach:v24.2.0) echo "v24.2.3, v24.2.0" ;;
+    cockroach:v24.1.0) echo "v24.1.5, v24.1.4, v24.1.0" ;;
+    cockroach:v23.2.0) echo "v23.2.12, v23.2.8, v23.2.0" ;;
+
+    oracle:latest)    echo "latest" ;;
+    oracle:23ai)      echo "23ai" ;;
+    oracle:23.4-free) echo "23.4-free, 23.3-free" ;;
+
+    db2:11.5.9.0) echo "11.5.9.0, 11.5.8.0, 11.5.7.0" ;;
+    db2:11.5.8.0) echo "11.5.8.0, 11.5.7.0" ;;
+    db2:latest)   echo "latest" ;;
+
+    snowflake:latest) echo "latest, 0.1.0" ;;
+
+    databricks:3.5.3) echo "3.5.3-scala2.12-java17-ubuntu, 3.5.3" ;;
+    databricks:3.5.0) echo "3.5.0-scala2.12-java11-ubuntu, 3.5.0" ;;
+    databricks:3.4.1) echo "3.4.1-scala2.12-java11-ubuntu, 3.4.1" ;;
+    *) echo "${major}, latest" ;;
+  esac
+}
+
 # ------------------------------------------------------------------------------
 # Local Image Inspector (Docker / Podman)
 # ------------------------------------------------------------------------------
@@ -407,13 +472,19 @@ get_locally_cached_images() {
 
   # Match repo name patterns, e.g. postgres, library/postgres, docker.io/library/postgres
   local short_name="${norm}"
-  if [[ "${norm}" == "postgres" ]]; then
-    short_name="postgres"
-  fi
+  case "${norm}" in
+    mongodb) short_name="(mongo|mongodb)" ;;
+    mssql) short_name="(mssql/server|mssql)" ;;
+    clickhouse) short_name="(clickhouse-server|clickhouse)" ;;
+    snowflake) short_name="(snowflake-emulator|snowflake)" ;;
+    databricks) short_name="(spark|databricks)" ;;
+    oracle) short_name="(adb-free|oracle)" ;;
+    *) short_name="${norm}" ;;
+  esac
 
   # Query local images: repository, tag, size
   "${crun}" images --format '{{.Repository}}:{{.Tag}} ({{.Size}})' 2>/dev/null | \
-    grep -E "(:|/)${short_name}:" | grep -v '<none>' || true
+    grep -E "(^|/)${short_name}:" | grep -v '<none>' || true
 }
 
 # ------------------------------------------------------------------------------
@@ -642,3 +713,139 @@ list_all_supported_engines_matrix() {
   printf "  spinctl versions <engine> <filter>    # e.g. spinctl versions postgres 16.1\n"
   printf "  spinctl versions <engine> --refresh   # Force refresh registry cache\n\n"
 }
+
+get_engine_versions_json() {
+  local engine="${1:-postgres}"
+  local norm
+  norm="$(normalize_engine_name "${engine}")"
+
+  local default_major="latest"
+  local default_sub="latest"
+  case "${norm}" in
+    postgres)    default_major="16"; default_sub="16" ;;
+    mysql)       default_major="8.4"; default_sub="8.4" ;;
+    mariadb)     default_major="11.4"; default_sub="11.4" ;;
+    pgvector)    default_major="pg16"; default_sub="pg16" ;;
+    mssql)       default_major="2022-latest"; default_sub="2022-latest" ;;
+    mongodb)     default_major="7.0"; default_sub="7.0" ;;
+    redis)       default_major="7-alpine"; default_sub="7-alpine" ;;
+    clickhouse)  default_major="24.8"; default_sub="24.8" ;;
+    cockroach)   default_major="v24.2.0"; default_sub="v24.2.0" ;;
+    oracle)      default_major="latest"; default_sub="latest" ;;
+    db2)         default_major="11.5.9.0"; default_sub="11.5.9.0" ;;
+    snowflake)   default_major="latest"; default_sub="latest" ;;
+    databricks)  default_major="3.5.3"; default_sub="3.5.3" ;;
+  esac
+
+  local local_images
+  local_images="$(get_locally_cached_images "${norm}")"
+
+  local cached_json="[]"
+  local cached_tags=()
+  if [[ -n "${local_images}" ]]; then
+    local cached_items=()
+    while IFS= read -r line; do
+      [[ -z "${line}" ]] && continue
+      local tag
+      tag="$(echo "${line}" | sed -E 's/^.*:([^ ]+) *\((.*)\)$/\1/')"
+      local size
+      size="$(echo "${line}" | sed -E 's/^.*:([^ ]+) *\((.*)\)$/\2/')"
+      if [[ -n "${tag}" ]]; then
+        cached_items+=("{\"tag\":\"${tag}\",\"size\":\"${size}\"}")
+        cached_tags+=("${tag}")
+      fi
+    done <<< "${local_images}"
+    if [[ ${#cached_items[@]} -gt 0 ]]; then
+      local old_ifs="$IFS"
+      IFS=','
+      cached_json="[${cached_items[*]}]"
+      IFS="$old_ifs"
+    fi
+  fi
+
+  # Check if remote cache file exists
+  local cache_file
+  cache_file="$(get_cache_file_for_engine "${norm}")"
+  local remote_tags=()
+  if [[ -f "${cache_file}" ]]; then
+    mapfile -t remote_tags < <(read_cache_tags "${cache_file}")
+  fi
+
+  local major_items=()
+  local major_keys=()
+  while IFS='|' read -r vtag vdesc; do
+    [[ -z "${vtag}" ]] && continue
+    vdesc="${vdesc//\"/\\\"}"
+    major_items+=("{\"id\":\"${vtag}\",\"label\":\"${vdesc}\"}")
+    major_keys+=("${vtag}")
+  done < <(get_curated_major_versions "${norm}")
+
+  if [[ ${#major_items[@]} -eq 0 ]]; then
+    major_items+=("{\"id\":\"latest\",\"label\":\"${norm} (latest)\"}")
+    major_keys+=("latest")
+  fi
+
+  local sub_entries=()
+  for mkey in "${major_keys[@]}"; do
+    local sub_csv
+    sub_csv="$(get_curated_subversions_for_major "${norm}" "${mkey}")"
+    local raw_subs=()
+    IFS=',' read -ra ADDR <<< "${sub_csv}"
+    for s in "${ADDR[@]}"; do
+      s="$(echo "${s}" | xargs)"
+      [[ -n "${s}" ]] && raw_subs+=("${s}")
+    done
+
+    # Add matching cached remote tags if available (limit 5)
+    local remote_count=0
+    for rtag in "${remote_tags[@]}"; do
+      if [[ "${rtag}" == "${mkey}"* ]]; then
+        raw_subs+=("${rtag}")
+        remote_count=$((remote_count + 1))
+        [[ ${remote_count} -ge 5 ]] && break
+      fi
+    done
+
+    # Build unique subversion list preserving order
+    local unique_subs=()
+    for s in "${raw_subs[@]}"; do
+      local exists=false
+      for u in "${unique_subs[@]}"; do
+        if [[ "${u}" == "${s}" ]]; then
+          exists=true
+          break
+        fi
+      done
+      if [[ "${exists}" == "false" ]]; then
+        unique_subs+=("${s}")
+      fi
+    done
+
+    local sub_json_items=()
+    for s in "${unique_subs[@]}"; do
+      sub_json_items+=("\"${s}\"")
+    done
+
+    local old_ifs="$IFS"
+    IFS=','
+    sub_entries+=("\"${mkey}\":[${sub_json_items[*]}]")
+    IFS="$old_ifs"
+  done
+
+  local old_ifs="$IFS"
+  IFS=','
+  local majors_joined="${major_items[*]}"
+  local subs_joined="${sub_entries[*]}"
+  IFS="$old_ifs"
+
+  printf '{\n'
+  printf '  "status": "success",\n'
+  printf '  "engine": "%s",\n' "${norm}"
+  printf '  "defaultMajor": "%s",\n' "${default_major}"
+  printf '  "defaultSub": "%s",\n' "${default_sub}"
+  printf '  "majorVersions": [%s],\n' "${majors_joined}"
+  printf '  "subVersions": {%s},\n' "${subs_joined}"
+  printf '  "localCached": %s\n' "${cached_json}"
+  printf '}\n'
+}
+

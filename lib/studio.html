@@ -833,6 +833,31 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       outline: none;
     }
     .form-control:focus { border-color: var(--border-focus); }
+    @keyframes spin-anim {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .spinner-ring {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      border: 2px solid rgba(56, 189, 248, 0.25);
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin-anim 0.75s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    .version-loading-indicator {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.76rem;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.12);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
     .modal-footer {
       display: flex;
       justify-content: flex-end;
@@ -1123,7 +1148,7 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       </div>
       <div class="form-group">
         <label>Database Engine</label>
-        <select id="spin-engine" class="form-control" onchange="updateSpinDefaults()">
+        <select id="spin-engine" class="form-control" onchange="onSpinEngineChange()">
           <option value="postgres">PostgreSQL</option>
           <option value="mysql">MySQL</option>
           <option value="mariadb">MariaDB</option>
@@ -1139,16 +1164,33 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
         </select>
       </div>
       <div class="form-group">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label style="margin-bottom:0;">Major Version</label>
+          <div id="spin-version-loading" class="version-loading-indicator" style="display:none;">
+            <span class="spinner-ring"></span> Loading versions...
+          </div>
+        </div>
+        <select id="spin-major-version" class="form-control" style="margin-top:6px;" onchange="onMajorVersionChange()">
+          <option value="">Loading...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Sub-Version / Image Tag</label>
+        <select id="spin-sub-version" class="form-control" onchange="onSubVersionChange()">
+          <option value="">Loading...</option>
+        </select>
+      </div>
+      <div class="form-group" id="spin-custom-version-group" style="display:none;">
+        <label>Custom Tag / Variant</label>
+        <input type="text" id="spin-custom-version" class="form-control" placeholder="e.g. 16.2-bullseye, alpine, etc." />
+      </div>
+      <div class="form-group">
         <label>Container Name (Optional)</label>
         <input type="text" id="spin-name" class="form-control" placeholder="e.g. dev-pg" />
       </div>
       <div class="form-group">
         <label>Host Port (Leave empty for auto-allocation)</label>
         <input type="text" id="spin-port" class="form-control" placeholder="Auto-allocated sequential port" />
-      </div>
-      <div class="form-group">
-        <label>Version Tag (Default: latest)</label>
-        <input type="text" id="spin-version" class="form-control" value="latest" />
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeSpinModal()">Cancel</button>
@@ -3012,34 +3054,183 @@ docker exec -it ${c ? c.name : 'container'} psql -U ${user} -d ${db}`;
       }
     }
 
+    const engineVersionsCache = {};
+
     function openSpinModal() {
       const modal = document.getElementById("spin-modal");
       if (modal) modal.classList.add("show");
-      updateSpinDefaults();
+      onSpinEngineChange();
     }
+
     function closeSpinModal() {
       const modal = document.getElementById("spin-modal");
       if (modal) modal.classList.remove("show");
     }
-    function updateSpinDefaults() {
+
+    async function onSpinEngineChange() {
       const engSelect = document.getElementById("spin-engine");
       const portInput = document.getElementById("spin-port");
-      if (!engSelect || !portInput) return;
+      const majorSelect = document.getElementById("spin-major-version");
+      const subSelect = document.getElementById("spin-sub-version");
+      const spinner = document.getElementById("spin-version-loading");
+      const customGroup = document.getElementById("spin-custom-version-group");
+
+      if (!engSelect) return;
       const eng = engSelect.value;
+
+      // Update port placeholder
       const defaultPort = (state.drivers[eng] && state.drivers[eng].defaultPort) || "";
-      portInput.placeholder = `Default: ${defaultPort} (or leave empty)`;
+      if (portInput) {
+        portInput.placeholder = `Default: ${defaultPort} (or leave empty)`;
+      }
+
+      if (customGroup) customGroup.style.display = "none";
+
+      // Show spinner while loading version catalog
+      if (spinner) spinner.style.display = "inline-flex";
+      if (majorSelect) {
+        majorSelect.disabled = true;
+        majorSelect.innerHTML = "<option value=''>⏳ Fetching available versions...</option>";
+      }
+      if (subSelect) {
+        subSelect.disabled = true;
+        subSelect.innerHTML = "<option value=''>⏳ Waiting for major version...</option>";
+      }
+
+      try {
+        let vdata = engineVersionsCache[eng];
+        if (!vdata) {
+          const res = await fetch(`/api/versions?engine=${encodeURIComponent(eng)}`);
+          vdata = await res.json();
+          if (vdata.status === "success") {
+            engineVersionsCache[eng] = vdata;
+          }
+        }
+
+        if (vdata && vdata.status === "success") {
+          renderMajorVersions(vdata);
+        } else {
+          fallbackVersionDropdowns(eng);
+        }
+      } catch (err) {
+        console.error("Failed to load versions for", eng, err);
+        fallbackVersionDropdowns(eng);
+      } finally {
+        if (spinner) spinner.style.display = "none";
+        if (majorSelect) majorSelect.disabled = false;
+        if (subSelect) subSelect.disabled = false;
+      }
+    }
+
+    function fallbackVersionDropdowns(engine) {
+      const majorSelect = document.getElementById("spin-major-version");
+      const subSelect = document.getElementById("spin-sub-version");
+      if (majorSelect) {
+        majorSelect.innerHTML = `<option value="latest">${engine} (latest)</option>`;
+      }
+      if (subSelect) {
+        subSelect.innerHTML = `<option value="latest">latest</option><option value="__custom__">⚙️ Custom Tag...</option>`;
+      }
+    }
+
+    function renderMajorVersions(vdata) {
+      const majorSelect = document.getElementById("spin-major-version");
+      if (!majorSelect) return;
+
+      majorSelect.innerHTML = "";
+      const majors = vdata.majorVersions || [];
+      majors.forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m.id;
+        opt.textContent = m.label || m.id;
+        if (m.id === vdata.defaultMajor) opt.selected = true;
+        majorSelect.appendChild(opt);
+      });
+
+      // Render subversions for current selected major
+      onMajorVersionChange();
+    }
+
+    function onMajorVersionChange() {
+      const engSelect = document.getElementById("spin-engine");
+      const majorSelect = document.getElementById("spin-major-version");
+      const subSelect = document.getElementById("spin-sub-version");
+      const customGroup = document.getElementById("spin-custom-version-group");
+
+      if (!engSelect || !majorSelect || !subSelect) return;
+      const eng = engSelect.value;
+      const major = majorSelect.value;
+      const vdata = engineVersionsCache[eng];
+
+      subSelect.innerHTML = "";
+      if (!vdata || !vdata.subVersions) {
+        subSelect.innerHTML = `<option value="${major}">${major}</option><option value="__custom__">⚙️ Custom Tag...</option>`;
+        return;
+      }
+
+      const subs = vdata.subVersions[major] || [major, "latest"];
+      const localCached = vdata.localCached || [];
+      const cachedMap = {};
+      localCached.forEach(c => {
+        if (c.tag) cachedMap[c.tag] = c.size || "cached";
+      });
+
+      subs.forEach(sub => {
+        const opt = document.createElement("option");
+        opt.value = sub;
+        if (cachedMap[sub]) {
+          opt.textContent = `${sub} ⚡ (Cached - ${cachedMap[sub]})`;
+        } else {
+          opt.textContent = sub;
+        }
+        if (sub === vdata.defaultSub || (!vdata.defaultSub && sub === major)) {
+          opt.selected = true;
+        }
+        subSelect.appendChild(opt);
+      });
+
+      // Add Custom Option
+      const customOpt = document.createElement("option");
+      customOpt.value = "__custom__";
+      customOpt.textContent = "⚙️ Custom Tag / Micro-Release...";
+      subSelect.appendChild(customOpt);
+
+      if (customGroup) customGroup.style.display = "none";
+    }
+
+    function onSubVersionChange() {
+      const subSelect = document.getElementById("spin-sub-version");
+      const customGroup = document.getElementById("spin-custom-version-group");
+      const customInput = document.getElementById("spin-custom-version");
+
+      if (!subSelect || !customGroup) return;
+      if (subSelect.value === "__custom__") {
+        customGroup.style.display = "block";
+        if (customInput) customInput.focus();
+      } else {
+        customGroup.style.display = "none";
+      }
     }
 
     async function submitSpinDB() {
       const engSelect = document.getElementById("spin-engine");
       const nameInput = document.getElementById("spin-name");
       const portInput = document.getElementById("spin-port");
-      const verInput = document.getElementById("spin-version");
+      const subSelect = document.getElementById("spin-sub-version");
+      const customInput = document.getElementById("spin-custom-version");
 
       const engine = engSelect ? engSelect.value : "postgres";
       const name = nameInput ? nameInput.value.trim() : "";
       const port = portInput ? portInput.value.trim() : "";
-      const version = verInput ? (verInput.value.trim() || "latest") : "latest";
+
+      let version = "latest";
+      if (subSelect) {
+        if (subSelect.value === "__custom__") {
+          version = customInput ? (customInput.value.trim() || "latest") : "latest";
+        } else {
+          version = subSelect.value || "latest";
+        }
+      }
 
       const btn = document.getElementById("btn-spin-submit");
       if (btn) {
@@ -3055,7 +3246,7 @@ docker exec -it ${c ? c.name : 'container'} psql -U ${user} -d ${db}`;
         });
         const data = await res.json();
         if (data.status === "ok") {
-          showToast(`Successfully launched ${engine} database!`);
+          showToast(`Successfully launched ${engine} database (${version})!`);
           closeSpinModal();
           setTimeout(() => rescanAllContainers(false), 2000);
         } else {

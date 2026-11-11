@@ -119,11 +119,20 @@ test_studio_server_smoke_startup_and_api() {
   assert_contains "${drivers_json}" '"postgres":' "API /api/drivers missing postgres"
   assert_contains "${drivers_json}" '"mysql":' "API /api/drivers missing mysql"
 
+  # Test GET /api/versions
+  local versions_json
+  versions_json="$(curl -s "http://127.0.0.1:${test_port}/api/versions?engine=postgres")"
+  assert_contains "${versions_json}" '"status": "success"' "API /api/versions missing success status"
+  assert_contains "${versions_json}" '"defaultMajor": "16"' "API /api/versions missing defaultMajor 16"
+
   # Test UI features presence in index HTML
   assert_contains "${index_html}" "Table DDL" "Index HTML missing Table DDL tab"
   assert_contains "${index_html}" "Seed Mock Data" "Index HTML missing Seed Mock Data"
   assert_contains "${index_html}" "Code Snippets" "Index HTML missing Code Snippets"
   assert_contains "${index_html}" "SQL Dump" "Index HTML missing SQL Dump"
+  assert_contains "${index_html}" "spin-version-loading" "Index HTML missing spin-version-loading spinner"
+  assert_contains "${index_html}" "spin-major-version" "Index HTML missing spin-major-version select"
+  assert_contains "${index_html}" "spin-sub-version" "Index HTML missing spin-sub-version select"
 
   # Test GET /api/table-ddl
   local ddl_json

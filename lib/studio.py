@@ -1126,6 +1126,27 @@ class SpinDBStudioHandler(BaseHTTPRequestHandler):
             self.send_json({"status": "ok", "drivers": catalog_copy})
             return
 
+        if path == "/api/versions":
+            engine = query_params.get("engine", ["postgres"])[0].lower()
+            try:
+                res = subprocess.run(
+                    [str(SPINCTL_BIN), "versions", engine, "--json"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    timeout=5
+                )
+                if res.returncode == 0 and res.stdout.strip():
+                    data = json.loads(res.stdout)
+                    self.send_json(data)
+                    return
+                else:
+                    self.send_json({"status": "error", "message": res.stderr.strip() or "Failed to query versions"}, status=500)
+                    return
+            except Exception as e:
+                self.send_json({"status": "error", "message": str(e)}, status=500)
+                return
+
         if path == "/api/download-jar":
             engine_key = query_params.get("engine", ["postgres"])[0].lower()
             driver = DRIVER_CATALOG.get(engine_key, DRIVER_CATALOG["postgres"])
