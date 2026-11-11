@@ -388,6 +388,62 @@ def get_running_containers(engine=None):
     return containers
 
 
+# Active container spin tracking registry
+ACTIVE_SPIN_JOBS = {}
+SPIN_JOBS_LOCK = threading.RLock()
+
+
+def get_in_progress_launches():
+    """Scans host processes for active podman/docker runs launching SpinDB containers."""
+    discovered = []
+    try:
+        res = subprocess.run(["ps", "-eo", "pid,args"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=2)
+        if res.returncode == 0:
+            for line in res.stdout.splitlines():
+                if ("podman run" in line or "docker run" in line) and "app=spindb" in line and "--name" in line:
+                    if "server.py" in line or "python" in line:
+                        continue
+                    name_match = re.search(r"--name\s+([^\s]+)", line)
+                    engine_match = re.search(r"spindb\.engine=([^\s]+)", line)
+                    img_match = re.search(r"([^\s]+)$", line)
+                    cname = name_match.group(1) if name_match else "database"
+                    cengine = engine_match.group(1) if engine_match else "unknown"
+                    cimage = img_match.group(1) if img_match else ""
+                    discovered.append({
+                        "id": f"proc-{cname}",
+                        "name": cname,
+                        "engine": cengine,
+                        "image": cimage,
+                        "status": "pulling",
+                        "lastLog": f"Downloading/extracting container image: {cimage}",
+                        "startTime": time.time(),
+                        "logs": [f"Downloading/extracting container image: {cimage}"],
+                        "error": None
+                    })
+    except Exception:
+        pass
+    return discovered
+
+
+def get_active_spin_jobs():
+    """Returns combined active spin operations from memory and host processes."""
+    with SPIN_JOBS_LOCK:
+        # Clean up old completed/failed jobs (> 10 mins)
+        now = time.time()
+        to_del = [k for k, v in ACTIVE_SPIN_JOBS.items() if v.get("status") in ("ready", "failed") and (now - v.get("startTime", now)) > 600]
+        for k in to_del:
+            del ACTIVE_SPIN_JOBS[k]
+        active_list = list(ACTIVE_SPIN_JOBS.values())
+
+    # Add discovered process launches if not already tracked
+    tracked_names = {j.get("name") for j in active_list}
+    for proc_job in get_in_progress_launches():
+        if proc_job["name"] not in tracked_names:
+            active_list.append(proc_job)
+
+    return active_list
+
+
 def check_driver_downloaded(file_name):
     """Checks if a driver JAR exists in the local drivers directory, user cache, or lib fallback."""
     if not file_name:
@@ -1119,7 +1175,18 @@ class SpinDBStudioHandler(BaseHTTPRequestHandler):
         if path == "/api/containers":
             engine = resolve_container_engine()
             containers = get_running_containers()
-            self.send_json({"status": "ok", "engine": engine, "containers": containers})
+            pending = get_active_spin_jobs()
+            self.send_json({"status": "ok", "engine": engine, "containers": containers, "pending": pending})
+            return
+
+        if path == "/api/spin-status":
+            job_id = query_params.get("jobId", [None])[0]
+            with SPIN_JOBS_LOCK:
+                if job_id and job_id in ACTIVE_SPIN_JOBS:
+                    self.send_json({"status": "ok", "job": ACTIVE_SPIN_JOBS[job_id]})
+                    return
+            all_jobs = get_active_spin_jobs()
+            self.send_json({"status": "ok", "jobs": all_jobs})
             return
 
         if path == "/api/drivers":
@@ -1290,10 +1357,10 @@ class SpinDBStudioHandler(BaseHTTPRequestHandler):
             driver = DRIVER_CATALOG.get(engine, DRIVER_CATALOG["postgres"])
             download_url = driver["downloadUrl"]
             file_name = driver["fileName"]
-            dest_path = LIB_DIR / file_name
+            dest_path = DRIVERS_DIR / file_name
 
             try:
-                LIB_DIR.mkdir(parents=True, exist_ok=True)
+                DRIVERS_DIR.mkdir(parents=True, exist_ok=True)
                 req = urllib.request.Request(
                     download_url,
                     headers={"User-Agent": "SpinDB-Studio/1.0"}
@@ -1311,11 +1378,52 @@ class SpinDBStudioHandler(BaseHTTPRequestHandler):
                 self.send_json({"status": "error", "message": str(e)}, status_code=500)
             return
 
+        if path == "/api/dismiss-spin":
+            job_id = payload.get("jobId")
+            with SPIN_JOBS_LOCK:
+                if job_id and job_id in ACTIVE_SPIN_JOBS:
+                    del ACTIVE_SPIN_JOBS[job_id]
+            self.send_json({"status": "ok"})
+            return
+
         if path == "/api/spin":
             engine = payload.get("engine", "postgres")
             name = payload.get("name", "")
             port = payload.get("port", "")
             version = payload.get("version", "latest")
+
+            catalog_entry = DRIVER_CATALOG.get(engine, {})
+            default_port = catalog_entry.get("defaultPort", "5432")
+            target_port = port or str(default_port)
+            target_name = name or f"{engine}-{target_port}"
+
+            with SPIN_JOBS_LOCK:
+                # Prevent duplicate colliding spins for the same container name or engine
+                for jid, job in ACTIVE_SPIN_JOBS.items():
+                    if job.get("status") in ("launching", "pulling", "starting") and (
+                        job.get("name") == target_name or (not name and job.get("engine") == engine)
+                    ):
+                        self.send_json({
+                            "status": "in_progress",
+                            "message": f"A launch for '{target_name}' is already actively running ({job.get('status')}).",
+                            "job": job
+                        })
+                        return
+
+                job_id = f"spin-{engine}-{uuid.uuid4().hex[:6]}"
+                job_record = {
+                    "id": job_id,
+                    "engine": engine,
+                    "name": target_name,
+                    "port": target_port,
+                    "version": version,
+                    "status": "launching",
+                    "startTime": time.time(),
+                    "lastLog": f"Initiating {engine} container launch...",
+                    "logs": [],
+                    "error": None
+                }
+                ACTIVE_SPIN_JOBS[job_id] = job_record
 
             cmd = [str(SPINCTL_BIN), "-t", engine, "-v", version]
             if name:
@@ -1323,16 +1431,58 @@ class SpinDBStudioHandler(BaseHTTPRequestHandler):
             if port:
                 cmd += ["-p", port]
 
-            try:
-                # Non-blocking launch in thread
-                def _launch():
-                    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            def _stream_spin():
+                try:
+                    proc = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        bufsize=1
+                    )
+                    with SPIN_JOBS_LOCK:
+                        job_record["pid"] = proc.pid
 
-                t = threading.Thread(target=_launch, daemon=True)
-                t.start()
-                self.send_json({"status": "ok", "message": f"Launching {engine} container in background."})
-            except Exception as e:
-                self.send_json({"status": "error", "message": str(e)}, status_code=500)
+                    for raw_line in iter(proc.stdout.readline, ''):
+                        line = raw_line.strip()
+                        if not line:
+                            continue
+                        with SPIN_JOBS_LOCK:
+                            job_record["lastLog"] = line
+                            job_record["logs"].append(line)
+                            if len(job_record["logs"]) > 100:
+                                job_record["logs"].pop(0)
+
+                            l_lower = line.lower()
+                            if any(k in l_lower for k in ("copying blob", "pulling", "downloading", "extracting", "trying to pull")):
+                                job_record["status"] = "pulling"
+                            elif any(k in l_lower for k in ("waiting", "healthcheck", "starting container", "allocating")):
+                                job_record["status"] = "starting"
+
+                    proc.stdout.close()
+                    rc = proc.wait()
+                    with SPIN_JOBS_LOCK:
+                        if rc == 0:
+                            job_record["status"] = "ready"
+                            job_record["lastLog"] = "Database container successfully started and healthy."
+                        else:
+                            job_record["status"] = "failed"
+                            err_candidates = [l for l in job_record["logs"] if "error" in l.lower() or "fail" in l.lower()]
+                            job_record["error"] = err_candidates[-1] if err_candidates else (job_record["logs"][-1] if job_record["logs"] else f"Exited with code {rc}")
+                except Exception as ex:
+                    with SPIN_JOBS_LOCK:
+                        job_record["status"] = "failed"
+                        job_record["error"] = str(ex)
+
+            t = threading.Thread(target=_stream_spin, daemon=True)
+            t.start()
+
+            self.send_json({
+                "status": "ok",
+                "jobId": job_id,
+                "targetName": target_name,
+                "message": f"Container launch initiated for {engine}."
+            })
             return
 
         if path == "/api/container-action":

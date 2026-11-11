@@ -275,6 +275,34 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       color: #fff;
       transform: scale(1.1);
     }
+    .tree-node.pending-node {
+      background: rgba(56, 189, 248, 0.05);
+      border: 1px dashed rgba(56, 189, 248, 0.3);
+      border-radius: 6px;
+      margin-bottom: 6px;
+      padding: 2px;
+    }
+    .tree-node.failed-node {
+      background: rgba(239, 68, 68, 0.06);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 6px;
+      margin-bottom: 6px;
+      padding: 2px;
+    }
+    .pending-log-preview {
+      font-size: 0.72rem;
+      color: #94a3b8;
+      font-family: var(--font-mono);
+      padding: 2px 8px 4px 28px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+    }
+    .pending-log-preview:hover {
+      color: #38bdf8;
+      text-decoration: underline;
+    }
     .tree-arrow {
       width: 14px;
       height: 14px;
@@ -1277,6 +1305,9 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
           <option value="databricks">Databricks Spark</option>
         </select>
       </div>
+      <div id="spin-image-notice" style="display:none; margin-bottom:12px; padding:10px 12px; border-radius:6px; font-size:0.8rem; background:rgba(56, 189, 248, 0.1); border:1px solid rgba(56, 189, 248, 0.3); color:#7dd3fc; line-height:1.4;">
+        <span id="spin-image-notice-text"></span>
+      </div>
       <div class="form-group">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <label style="margin-bottom:0;">Major Version</label>
@@ -1309,6 +1340,28 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeSpinModal()">Cancel</button>
         <button class="btn-success" id="btn-spin-submit" onclick="submitSpinDB()">🚀 Launch Container</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Container Launch Progress & Logs Modal -->
+  <div class="modal-backdrop" id="spin-logs-modal">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="spinner-ring" id="spin-logs-spinner" style="width:16px; height:16px; border-width:2px;"></span>
+          <span id="spin-logs-title">Container Launch Progress</span>
+        </div>
+        <span style="cursor:pointer;" onclick="closeSpinLogsModal()">✕</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:0.8rem;">
+        <span id="spin-logs-status" style="color:var(--accent-cyan); font-family:var(--font-mono);">Status: Initializing...</span>
+        <button class="btn-secondary" id="btn-dismiss-spin-job" style="display:none; font-size:0.75rem; padding:3px 8px; border-color:var(--accent-red); color:#fca5a5;" onclick="dismissActiveSpinJob()">Dismiss Job</button>
+      </div>
+      <pre id="spin-logs-content" style="background:#0f172a; color:#e2e8f0; font-family:var(--font-mono); font-size:0.82rem; padding:12px; border-radius:6px; border:1px solid var(--border-color); height:320px; overflow-y:auto; white-space:pre-wrap; margin:0; line-height:1.5;"></pre>
+      <div class="modal-footer" style="margin-top:14px; justify-content:space-between;">
+        <span style="font-size:0.75rem; color:var(--text-muted);">Real-time progress streamed directly from container runtime</span>
+        <button class="btn-secondary" onclick="closeSpinLogsModal()">Close</button>
       </div>
     </div>
   </div>
@@ -1453,7 +1506,8 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       gridPageSize: 50,
       activeDdl: "",
       currentSnippetLang: "spring",
-      treeFilter: ""
+      treeFilter: "",
+      pendingSpins: []
     };
 
     function initApp() {
@@ -1581,11 +1635,51 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
     function renderTree() {
       const treeEl = document.getElementById("db-tree");
       const countEl = document.getElementById("db-count");
-      if (countEl) countEl.textContent = state.containers.length;
+      const activePending = (state.pendingSpins || []).filter(p => p.status !== "ready");
+      if (countEl) countEl.textContent = state.containers.length + (activePending.length > 0 ? ` (+${activePending.length} pending)` : "");
       if (!treeEl) return;
       treeEl.innerHTML = "";
 
-      if (state.containers.length === 0) {
+      // Render pending or recently failed spin operations at top of navigator
+      if (state.pendingSpins && state.pendingSpins.length > 0) {
+        state.pendingSpins.forEach(p => {
+          if (p.status === "ready") return;
+          const isFailed = p.status === "failed";
+          const node = document.createElement("div");
+          node.className = "tree-node " + (isFailed ? "failed-node" : "pending-node");
+
+          const row = document.createElement("div");
+          row.className = "tree-row";
+          row.style.cursor = "pointer";
+          row.onclick = () => openSpinLogsModal(p.id);
+
+          const badgeClass = isFailed ? "badge-danger" : "badge-warning";
+          const statusText = isFailed ? "❌ Failed" : (p.status === "pulling" ? "⏳ Pulling Image..." : (p.status === "starting" ? "⚡ Starting..." : "⏳ Launching..."));
+
+          row.innerHTML = `
+            ${isFailed ? '<span style="font-size:0.8rem; margin-right:2px;">⚠️</span>' : '<span class="spinner-ring" style="width:12px; height:12px; border-width:2px; margin-right:4px;"></span>'}
+            <span class="tree-icon">${getEngineIcon(p.engine)}</span>
+            <span class="tree-label" style="font-style:italic; color:${isFailed ? '#fca5a5' : '#7dd3fc'};" title="Click to view live container logs">${p.name}</span>
+            <span class="tree-engine-badge ${badgeClass}" style="font-size:0.68rem; padding:1px 6px;">${statusText}</span>
+            <div class="tree-row-actions" style="display:flex;">
+              <button class="tree-mini-btn" title="View Logs" onclick="event.stopPropagation(); openSpinLogsModal('${p.id}')">📜</button>
+              ${isFailed ? `<button class="tree-mini-btn" title="Dismiss" onclick="event.stopPropagation(); dismissSpinJob('${p.id}')">✕</button>` : ''}
+            </div>
+          `;
+          node.appendChild(row);
+
+          const sub = document.createElement("div");
+          sub.className = "pending-log-preview";
+          sub.title = "Click to inspect full logs";
+          sub.onclick = () => openSpinLogsModal(p.id);
+          sub.textContent = isFailed ? (p.error || "Launch failed. Click for details.") : (p.lastLog || "Downloading image...");
+          node.appendChild(sub);
+
+          treeEl.appendChild(node);
+        });
+      }
+
+      if (state.containers.length === 0 && (!state.pendingSpins || state.pendingSpins.filter(p => p.status !== "ready").length === 0)) {
         treeEl.innerHTML = `<div style="padding:16px; color:var(--text-muted); font-size:0.85rem; text-align:center;">
           No running databases detected.<br/><br/>
           Click <b>+ Spin New DB</b> to launch one!
@@ -2076,6 +2170,7 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
         const dData = await dRes.json();
 
         state.containers = cData.containers || [];
+        state.pendingSpins = cData.pending || [];
         state.drivers = dData.drivers || {};
 
         renderTree();
@@ -2116,6 +2211,7 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
         const driversData = await dRes.json();
 
         state.containers = containersData.containers || [];
+        state.pendingSpins = containersData.pending || [];
         state.drivers = driversData.drivers || {};
 
         // If currently selected container still exists, preserve selection and user's edited JDBC URL!
@@ -3257,6 +3353,21 @@ docker exec -it ${c ? c.name : 'container'} psql -U ${user} -d ${db}`;
       if (!engSelect) return;
       const eng = engSelect.value;
 
+      // Notice for large images
+      const noticeBox = document.getElementById("spin-image-notice");
+      const noticeText = document.getElementById("spin-image-notice-text");
+      if (noticeBox && noticeText) {
+        if (eng === "oracle") {
+          noticeText.innerHTML = "ℹ️ <b>Oracle Autonomous Database Free</b> image is ~2.7 GB compressed (~8 GB unpacked). The first run streams download in the background with live progress tracking in the Database Navigator.";
+          noticeBox.style.display = "block";
+        } else if (eng === "db2") {
+          noticeText.innerHTML = "ℹ️ <b>IBM DB2 Community</b> image is ~2.5 GB. Initial download may take a few minutes depending on network bandwidth.";
+          noticeBox.style.display = "block";
+        } else {
+          noticeBox.style.display = "none";
+        }
+      }
+
       // Update port placeholder
       const defaultPort = (state.drivers[eng] && state.drivers[eng].defaultPort) || "";
       if (portInput) {
@@ -3424,10 +3535,16 @@ docker exec -it ${c ? c.name : 'container'} psql -U ${user} -d ${db}`;
           body: JSON.stringify({ engine, name, port, version })
         });
         const data = await res.json();
-        if (data.status === "ok") {
-          showToast(`Successfully launched ${engine} database (${version})!`);
+        if (data.status === "in_progress") {
+          showToast(`⚠️ ${data.message}`, true);
           closeSpinModal();
-          setTimeout(() => rescanAllContainers(false), 2000);
+          await loadAllData(false);
+          if (data.job && data.job.id) openSpinLogsModal(data.job.id);
+        } else if (data.status === "ok") {
+          showToast(`🚀 Initiated ${engine} launch! Tracking live progress in Database Navigator.`);
+          closeSpinModal();
+          await loadAllData(false);
+          if (data.jobId) openSpinLogsModal(data.jobId);
         } else {
           showToast(`Spin failed: ${data.message}`, true);
         }
@@ -3439,6 +3556,89 @@ docker exec -it ${c ? c.name : 'container'} psql -U ${user} -d ${db}`;
           btn.disabled = false;
         }
       }
+    }
+
+    let spinLogPollTimer = null;
+    let activeSpinLogJobId = null;
+
+    async function openSpinLogsModal(jobId) {
+      activeSpinLogJobId = jobId;
+      const modal = document.getElementById("spin-logs-modal");
+      if (modal) modal.classList.add("show");
+      await refreshSpinLogs();
+      if (spinLogPollTimer) clearInterval(spinLogPollTimer);
+      spinLogPollTimer = setInterval(refreshSpinLogs, 2000);
+    }
+
+    function closeSpinLogsModal() {
+      const modal = document.getElementById("spin-logs-modal");
+      if (modal) modal.classList.remove("show");
+      if (spinLogPollTimer) {
+        clearInterval(spinLogPollTimer);
+        spinLogPollTimer = null;
+      }
+      activeSpinLogJobId = null;
+    }
+
+    async function refreshSpinLogs() {
+      if (!activeSpinLogJobId) return;
+      try {
+        const res = await fetch(`/api/spin-status?jobId=${encodeURIComponent(activeSpinLogJobId)}`);
+        const data = await res.json();
+        const job = data.job || (state.pendingSpins && state.pendingSpins.find(p => p.id === activeSpinLogJobId));
+        if (!job) return;
+
+        const titleEl = document.getElementById("spin-logs-title");
+        const statusEl = document.getElementById("spin-logs-status");
+        const contentEl = document.getElementById("spin-logs-content");
+        const spinner = document.getElementById("spin-logs-spinner");
+        const dismissBtn = document.getElementById("btn-dismiss-spin-job");
+
+        if (titleEl) titleEl.textContent = `Launch Progress: ${job.name} (${job.engine})`;
+        if (statusEl) {
+          const st = (job.status || "running").toUpperCase();
+          const startedStr = job.startTime ? new Date(job.startTime * 1000).toLocaleTimeString() : "";
+          statusEl.textContent = `Status: ${st}${startedStr ? ' | Started: ' + startedStr : ''}`;
+          statusEl.style.color = job.status === "failed" ? "var(--accent-red)" : (job.status === "ready" ? "var(--accent-emerald)" : "var(--accent-cyan)");
+        }
+        if (spinner) spinner.style.display = (job.status === "pulling" || job.status === "starting" || job.status === "launching") ? "inline-block" : "none";
+        if (dismissBtn) dismissBtn.style.display = job.status === "failed" ? "inline-block" : "none";
+
+        if (contentEl) {
+          const logText = (job.logs && job.logs.length > 0) ? job.logs.join("\n") : (job.lastLog || "No log messages captured yet.");
+          contentEl.textContent = logText;
+          contentEl.scrollTop = contentEl.scrollHeight;
+        }
+
+        if (job.status === "ready") {
+          showToast(`✓ Database ${job.name} is now online and healthy!`);
+          setTimeout(() => {
+            closeSpinLogsModal();
+            loadAllData(false);
+          }, 1800);
+        }
+      } catch (err) {
+        console.error("Error refreshing spin logs", err);
+      }
+    }
+
+    async function dismissSpinJob(jobId) {
+      try {
+        await fetch("/api/dismiss-spin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobId })
+        });
+        state.pendingSpins = (state.pendingSpins || []).filter(p => p.id !== jobId);
+        renderTree();
+        if (activeSpinLogJobId === jobId) closeSpinLogsModal();
+      } catch (err) {
+        console.error("Error dismissing spin job", err);
+      }
+    }
+
+    function dismissActiveSpinJob() {
+      if (activeSpinLogJobId) dismissSpinJob(activeSpinLogJobId);
     }
 
     function showToast(msg, isError = false) {
