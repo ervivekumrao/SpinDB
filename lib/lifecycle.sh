@@ -181,7 +181,12 @@ handle_lifecycle_command() {
           "${CONTAINER_ENGINE}" exec -it "${target}" sh
           ;;
         mongodb)
-          "${CONTAINER_ENGINE}" exec -it "${target}" mongosh || "${CONTAINER_ENGINE}" exec -it "${target}" sh
+          "${CONTAINER_ENGINE}" exec -it "${target}" sh -c 'if [ -n "$MONGO_INITDB_ROOT_USERNAME" ]; then mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin "${MONGO_INITDB_DATABASE:-mgdb}"; else mongosh "${MONGO_INITDB_DATABASE:-mgdb}"; fi' || \
+          "${CONTAINER_ENGINE}" exec -it "${target}" sh
+          ;;
+        oracle)
+          "${CONTAINER_ENGINE}" exec -it "${target}" sh -c 'if command -v sqlplus >/dev/null 2>&1; then sqlplus admin/"${ADMIN_PASSWORD:-0raclePa55w0rd}"@localhost:1521/FREEPDB1 2>/dev/null || sqlplus admin/"${ADMIN_PASSWORD:-0raclePa55w0rd}"@localhost:1521/oracledb 2>/dev/null || sqlplus; else bash; fi' || \
+          "${CONTAINER_ENGINE}" exec -it "${target}" bash
           ;;
         clickhouse)
           "${CONTAINER_ENGINE}" exec -it "${target}" clickhouse-client || "${CONTAINER_ENGINE}" exec -it "${target}" sh

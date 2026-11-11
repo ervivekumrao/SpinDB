@@ -24,7 +24,7 @@ COPY --chmod=0644 setupDB.sql /var/custom/setupDB.sql
 #Update sql file with environment variable values so no need to update multiple places
 RUN sed -i -e "s/mssqldb/${MSSQL_DB}/g" /var/custom/setupDB.sql
 RUN sed -i -e "s/userid/${MSSQL_USER}/g" /var/custom/setupDB.sql
-RUN sed -i -e "s/userpass/${MSSQL_PASSWORD}/g" /var/custom/setupDB.sql
+RUN sed -i -e "s/P@55w0rd/${MSSQL_PASSWORD}/g" -e "s/userpass/${MSSQL_PASSWORD}/g" /var/custom/setupDB.sql
 RUN sed -i -e "s/userdata/${MSSQL_SCHEMA}/g" /var/custom/setupDB.sql
 
 ENTRYPOINT ["bash", "-x", "/var/custom/entrypoint.sh"]

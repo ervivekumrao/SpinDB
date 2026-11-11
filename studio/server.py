@@ -619,15 +619,54 @@ def execute_database_query(engine_name, container_name, query, db_info=None):
 
         elif engine_name == "mongodb":
             dbname = database if database else "mgdb"
-            cmd = [
-                container_engine, "exec", container_name,
-                "mongosh", "--quiet", dbname, "--eval", query
-            ]
+            cmd = [container_engine, "exec", container_name, "mongosh", "--quiet"]
+            if user and password:
+                cmd.extend(["-u", user, "-p", password, "--authenticationDatabase", "admin"])
+            cmd.extend([dbname, "--eval", query])
             res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=15)
             if res.returncode != 0:
-                return {"status": "error", "message": res.stderr.strip() or res.stdout.strip()}
+                # If authenticated run failed, attempt fallback without auth args
+                if user and password:
+                    fallback_cmd = [container_engine, "exec", container_name, "mongosh", "--quiet", dbname, "--eval", query]
+                    fres = subprocess.run(fallback_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=15)
+                    if fres.returncode == 0:
+                        res = fres
+                    else:
+                        return {"status": "error", "message": res.stderr.strip() or res.stdout.strip()}
+                else:
+                    return {"status": "error", "message": res.stderr.strip() or res.stdout.strip()}
             columns = ["Document / Output"]
             rows = [[line] for line in res.stdout.strip().split("\n") if line.strip()]
+
+        elif engine_name == "oracle":
+            dbname = database if database else "oracledb"
+            connect_str = f"{user}/{password}@localhost:1521/{dbname}"
+            sql_script = f"SET PAGESIZE 5000\nSET FEEDBACK OFF\nSET HEADING ON\nSET MARKUP CSV ON\n{query.rstrip(';')};\nEXIT;\n"
+            cmd = [container_engine, "exec", "-i", container_name, "sqlplus", "-s", connect_str]
+            res = subprocess.run(cmd, input=sql_script, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=25)
+            if res.returncode != 0 or not res.stdout.strip():
+                admin_pass = password or "0raclePa55w0rd"
+                admin_connect_str = f"admin/{admin_pass}@localhost:1521/{dbname}"
+                cmd2 = [container_engine, "exec", "-i", container_name, "sqlplus", "-s", admin_connect_str]
+                res2 = subprocess.run(cmd2, input=sql_script, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=25)
+                if res2.returncode == 0 and res2.stdout.strip():
+                    res = res2
+                elif res.returncode != 0:
+                    return {"status": "error", "message": res.stderr.strip() or res.stdout.strip() or "Oracle query execution failed"}
+
+            out = res.stdout.strip()
+            if out:
+                reader = csv.reader(io.StringIO(out))
+                parsed_rows = list(reader)
+                if parsed_rows:
+                    columns = parsed_rows[0]
+                    rows = parsed_rows[1:]
+                else:
+                    columns = ["Result"]
+                    rows = [["Query executed successfully."]]
+            else:
+                columns = ["Result"]
+                rows = [["Query executed successfully."]]
 
         else:
             return {"status": "error", "message": f"Query execution for '{engine_name}' is not supported yet."}
@@ -676,6 +715,8 @@ def get_schema_tables(engine_name, container_name, db_info=None):
         q = "db.getCollectionNames()"
     elif engine_name == "redis":
         q = "KEYS *"
+    elif engine_name == "oracle":
+        q = "SELECT owner AS table_schema, table_name, 'TABLE' AS table_type FROM all_tables WHERE owner NOT IN ('SYS','SYSTEM','XDB','MDSYS','CTXSYS','AUDSYS','GSMADMIN_INTERNAL') ORDER BY table_name"
     else:
         return []
 
@@ -753,6 +794,8 @@ def get_table_structure(engine_name, container_name, schema_name, table_name, db
         return [
             {"column_name": "Key", "data_type": "string / hash / list", "is_nullable": "NO", "column_default": "", "is_primary": "YES"}
         ]
+    elif engine_name == "oracle":
+        q = f"SELECT column_name, data_type, nullable AS is_nullable, '' AS column_default, 'NO' AS is_primary FROM all_tab_columns WHERE owner = UPPER('{schema_name}') AND table_name = UPPER('{table_name}') ORDER BY column_id"
     else:
         return []
 
@@ -943,8 +986,8 @@ def dump_database(engine_name, container_name, db_info=None):
     password = (db_info.get("password") if db_info else None) or "P@55w0rd"
     database = (db_info.get("database") if db_info else None) or "pgdb"
 
-    if engine_name in ("postgres", "pgvector", "cockroach"):
-        cmd = [c_engine, "exec", container_name, "pg_dump", "-U", user, "-d", database, "--clean", "--if-exists"]
+    if engine_name in ("postgres", "pgvector"):
+        cmd = [c_engine, "exec", "-e", f"PGPASSWORD={password}", container_name, "pg_dump", "-U", user, "-d", database, "--clean", "--if-exists"]
         try:
             res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=40)
             if res.returncode == 0 and res.stdout:
@@ -990,12 +1033,17 @@ def execute_multi_script(engine_name, container_name, script, db_info=None):
     database = (db_info.get("database") if db_info else None) or "pgdb"
 
     start_time = time.time()
-    if engine_name in ("postgres", "pgvector", "cockroach"):
-        cmd = [c_engine, "exec", "-i", container_name, "psql", "-U", user, "-d", database]
+    if engine_name in ("postgres", "pgvector"):
+        cmd = [c_engine, "exec", "-i", "-e", f"PGPASSWORD={password}", container_name, "psql", "-U", user, "-d", database]
+    elif engine_name == "cockroach":
+        cmd = [c_engine, "exec", "-i", container_name, "/cockroach/cockroach", "sql", "--insecure", "--database", database]
     elif engine_name in ("mysql", "mariadb"):
         cmd = [c_engine, "exec", "-i", "-e", f"MYSQL_PWD={password}", container_name, "mysql", "-u", user, database]
     elif engine_name == "clickhouse":
         cmd = [c_engine, "exec", "-i", container_name, "clickhouse-client", "--multiquery"]
+    elif engine_name == "mongodb":
+        auth_args = ["-u", user, "-p", password, "--authenticationDatabase", "admin"] if user and password else []
+        cmd = [c_engine, "exec", "-i", container_name, "mongosh", "--quiet"] + auth_args + [database]
     else:
         return {"status": "error", "message": f"Script execution is not supported for {engine_name}."}
 

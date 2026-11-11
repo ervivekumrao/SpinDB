@@ -12,7 +12,7 @@ GO
 
 IF NOT EXISTS (SELECT name FROM sys.server_principals WHERE name = 'userid')
 BEGIN
-    CREATE LOGIN userid WITH PASSWORD = 'userpass', DEFAULT_DATABASE = mssqldb;
+    CREATE LOGIN userid WITH PASSWORD = 'P@55w0rd', DEFAULT_DATABASE = mssqldb;
 END
 GO
 
