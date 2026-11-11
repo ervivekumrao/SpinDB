@@ -137,17 +137,22 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 
     /* Database Navigator Tree Styles */
     .tree-toolbar {
-      padding: 10px 12px;
+      padding: 10px 10px 8px 10px;
       font-size: 0.78rem;
+      border-bottom: 1px solid var(--border-color);
+      background-color: rgba(15, 23, 42, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .tree-toolbar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: var(--text-secondary);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--border-color);
-      background-color: rgba(15, 23, 42, 0.4);
     }
     .tree-actions {
       display: flex;
@@ -168,6 +173,48 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       color: #fff;
       border-color: var(--accent-blue);
     }
+    .tree-filter-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+    .tree-filter-input {
+      width: 100%;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      color: #f8fafc;
+      font-size: 0.76rem;
+      padding: 5px 22px 5px 25px;
+      border-radius: 4px;
+      outline: none;
+      transition: all 0.15s ease;
+    }
+    .tree-filter-input:focus {
+      border-color: var(--accent-cyan);
+      background: rgba(15, 23, 42, 0.95);
+    }
+    .tree-filter-icon {
+      position: absolute;
+      left: 7px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    .tree-filter-clear {
+      position: absolute;
+      right: 6px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.7rem;
+      padding: 0;
+      line-height: 1;
+    }
+    .tree-filter-clear:hover {
+      color: #fff;
+    }
     .tree-view {
       list-style: none;
       overflow-y: auto;
@@ -187,14 +234,46 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       cursor: pointer;
       transition: background-color 0.15s ease;
       color: var(--text-primary);
+      position: relative;
     }
     .tree-row:hover {
       background-color: var(--bg-tertiary);
     }
     .tree-row.active {
-      background-color: #1e3a8a;
+      background: linear-gradient(90deg, #1e3a8a 0%, rgba(30, 58, 138, 0.6) 100%);
       border-left: 3px solid #38bdf8;
       color: #fff;
+    }
+    .tree-row-actions {
+      display: none;
+      align-items: center;
+      gap: 3px;
+      margin-left: auto;
+      margin-right: 2px;
+    }
+    .tree-row:hover .tree-row-actions {
+      display: flex;
+    }
+    .tree-mini-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #cbd5e1;
+      border-radius: 3px;
+      width: 20px;
+      height: 20px;
+      font-size: 0.72rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      padding: 0;
+    }
+    .tree-mini-btn:hover {
+      background: var(--accent-blue);
+      border-color: #38bdf8;
+      color: #fff;
+      transform: scale(1.1);
     }
     .tree-arrow {
       width: 14px;
@@ -207,6 +286,7 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       cursor: pointer;
       user-select: none;
       transition: transform 0.15s ease;
+      flex-shrink: 0;
     }
     .tree-arrow.expanded {
       transform: rotate(90deg);
@@ -215,6 +295,7 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       font-size: 0.95rem;
       display: inline-flex;
       align-items: center;
+      flex-shrink: 0;
     }
     .tree-label {
       flex: 1;
@@ -223,6 +304,29 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       white-space: nowrap;
       font-weight: 500;
     }
+    .tree-engine-badge {
+      font-size: 0.64rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: rgba(56, 189, 248, 0.12);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      letter-spacing: 0.03em;
+      flex-shrink: 0;
+    }
+    .tree-engine-badge.postgres { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border-color: rgba(59, 130, 246, 0.3); }
+    .tree-engine-badge.mysql { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
+    .tree-engine-badge.mariadb { background: rgba(20, 184, 166, 0.15); color: #2dd4bf; border-color: rgba(20, 184, 166, 0.3); }
+    .tree-engine-badge.redis { background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
+    .tree-engine-badge.mongodb { background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3); }
+    .tree-engine-badge.clickhouse { background: rgba(234, 179, 8, 0.15); color: #facc15; border-color: rgba(234, 179, 8, 0.3); }
+    .tree-engine-badge.mssql { background: rgba(99, 102, 241, 0.15); color: #818cf8; border-color: rgba(99, 102, 241, 0.3); }
+    .tree-engine-badge.cockroach { background: rgba(168, 85, 247, 0.15); color: #c084fc; border-color: rgba(168, 85, 247, 0.3); }
+    .tree-engine-badge.snowflake { background: rgba(14, 165, 233, 0.15); color: #38bdf8; border-color: rgba(14, 165, 233, 0.3); }
+    .tree-engine-badge.oracle { background: rgba(244, 63, 94, 0.15); color: #fb7185; border-color: rgba(244, 63, 94, 0.3); }
+    .tree-engine-badge.pgvector { background: rgba(147, 51, 234, 0.15); color: #c084fc; border-color: rgba(147, 51, 234, 0.3); }
     .tree-badge {
       font-size: 0.68rem;
       padding: 1px 5px;
@@ -230,6 +334,7 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       background-color: var(--bg-primary);
       color: var(--accent-cyan);
       font-family: var(--font-mono);
+      flex-shrink: 0;
     }
     .tree-children {
       margin-left: 18px;
@@ -242,15 +347,17 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
     }
 
     .status-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background-color: var(--accent-red);
       display: inline-block;
+      flex-shrink: 0;
+      margin-left: 3px;
     }
     .status-dot.online {
       background-color: var(--accent-green);
-      box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+      box-shadow: 0 0 7px rgba(16, 185, 129, 0.7);
     }
     .engine-badge {
       font-size: 0.72rem;
@@ -910,10 +1017,17 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
     <!-- Sidebar: Hierarchical Database Navigator Tree -->
     <aside class="sidebar">
       <div class="tree-toolbar">
-        <span>Database Navigator (<span id="db-count">0</span>)</span>
-        <div class="tree-actions">
-          <button class="tree-btn" onclick="rescanAllContainers(true)" title="Rescan running databases and reload tree">🔄 Rescan</button>
-          <button class="tree-btn" onclick="toggleExpandAllTree()" title="Expand or collapse all tree nodes" id="btn-toggle-all">⊞ Expand All</button>
+        <div class="tree-toolbar-header">
+          <span>Database Navigator (<span id="db-count">0</span>)</span>
+          <div class="tree-actions">
+            <button class="tree-btn" onclick="rescanAllContainers(true)" title="Rescan running databases and reload tree">🔄 Rescan</button>
+            <button class="tree-btn" onclick="toggleExpandAllTree()" title="Expand or collapse all tree nodes" id="btn-toggle-all">⊞ Expand All</button>
+          </div>
+        </div>
+        <div class="tree-filter-wrap">
+          <span class="tree-filter-icon">🔍</span>
+          <input type="text" id="tree-search" class="tree-filter-input" placeholder="Filter databases & tables..." oninput="onTreeFilterInput(this.value)" />
+          <button class="tree-filter-clear" id="tree-filter-clear" onclick="clearTreeFilter()" style="display:none;" title="Clear filter">✕</button>
         </div>
       </div>
       <div class="tree-view" id="db-tree">
@@ -1338,7 +1452,8 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       gridPage: 1,
       gridPageSize: 50,
       activeDdl: "",
-      currentSnippetLang: "spring"
+      currentSnippetLang: "spring",
+      treeFilter: ""
     };
 
     function initApp() {
@@ -1423,6 +1538,46 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       }
     }
 
+    function onTreeFilterInput(val) {
+      state.treeFilter = (val || "").trim().toLowerCase();
+      const clearBtn = document.getElementById("tree-filter-clear");
+      if (clearBtn) clearBtn.style.display = state.treeFilter ? "block" : "none";
+      renderTree();
+    }
+
+    function clearTreeFilter() {
+      const input = document.getElementById("tree-search");
+      if (input) input.value = "";
+      onTreeFilterInput("");
+    }
+
+    function openSqlConsoleFor(containerName) {
+      const c = state.containers.find(x => x.name === containerName);
+      if (c) {
+        connectAndSelectDatabase(c);
+      }
+      const tabBtn = document.querySelector('.tab[data-tab="query"]');
+      if (tabBtn) tabBtn.click();
+      const editor = document.getElementById("sql-editor");
+      if (editor) editor.focus();
+      showToast(`Switched to SQL Console for '${containerName}'`);
+    }
+
+    function copyJdbcUrlFor(containerName) {
+      const c = state.containers.find(x => x.name === containerName);
+      if (!c) return;
+      const url = c.jdbcUrl || (document.getElementById("jdbc-input") && document.getElementById("jdbc-input").value) || "";
+      if (!url) {
+        showToast(`No JDBC URL available for ${containerName}`, true);
+        return;
+      }
+      navigator.clipboard.writeText(url).then(() => {
+        showToast(`📋 Copied JDBC URL for ${containerName}!`);
+      }).catch(() => {
+        showToast("Failed to copy URL to clipboard", true);
+      });
+    }
+
     function renderTree() {
       const treeEl = document.getElementById("db-tree");
       const countEl = document.getElementById("db-count");
@@ -1438,11 +1593,23 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
         return;
       }
 
+      const filter = (state.treeFilter || "").trim().toLowerCase();
+      let visibleCount = 0;
+
       state.containers.forEach(c => {
+        const rawTables = state.treeSchemas[c.name] || [];
+        const matchesContainer = !filter || c.name.toLowerCase().includes(filter) || (c.engine && c.engine.toLowerCase().includes(filter));
+        const matchingTables = filter ? rawTables.filter(t => (t.name && t.name.toLowerCase().includes(filter)) || (t.schema && t.schema.toLowerCase().includes(filter))) : rawTables;
+
+        if (filter && !matchesContainer && matchingTables.length === 0) {
+          return;
+        }
+        visibleCount++;
+
         const isConnected = Boolean(state.connectedDbs && state.connectedDbs[c.name]);
         const isContainerActive = state.selectedContainer && state.selectedContainer.name === c.name;
         const cKey = "c:" + c.name;
-        const isContainerExpanded = isConnected && Boolean(state.treeExpanded[cKey]);
+        const isContainerExpanded = (filter && matchingTables.length > 0) || (isConnected && Boolean(state.treeExpanded[cKey]));
 
         const node = document.createElement("div");
         node.className = "tree-node";
@@ -1463,8 +1630,13 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
           ${arrowHtml}
           <span class="tree-icon">${getEngineIcon(c.engine)}</span>
           <span class="tree-label" title="${c.displayName} (${c.name})">${c.name}</span>
-          <span class="tree-badge">:${c.port}</span>
-          <span class="status-dot ${c.isRunning ? 'online' : ''}" title="${isConnected ? 'Connected & Running' : 'Running (Click to connect)'}"></span>
+          <span class="tree-engine-badge ${c.engine}">${c.engine}</span>
+          <div class="tree-row-actions">
+            <button class="tree-mini-btn" title="Open SQL Console for ${c.name}" onclick="event.stopPropagation(); openSqlConsoleFor('${c.name}')">⚡</button>
+            <button class="tree-mini-btn" title="Copy JDBC URL for ${c.name}" onclick="event.stopPropagation(); copyJdbcUrlFor('${c.name}')">📋</button>
+            <button class="tree-mini-btn" title="Restart ${c.name}" onclick="event.stopPropagation(); handleContainerAction('restart', '${c.name}')">🔄</button>
+          </div>
+          <span class="status-dot ${c.isRunning ? 'online' : ''}" title="${c.isRunning ? (isConnected ? 'Connected & Running' : 'Running (Click to connect)') : 'Stopped'}"></span>
         `;
         node.appendChild(row);
 
@@ -1482,9 +1654,10 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
           } else if (tables.length === 0) {
             childrenDiv.innerHTML = `<div style="padding:4px 8px; font-size:0.75rem; color:var(--text-muted);">(No tables found)</div>`;
           } else {
+            const visibleTables = filter && !matchesContainer ? matchingTables : tables;
             // Group tables by schema
             const groups = {};
-            tables.forEach(t => {
+            visibleTables.forEach(t => {
               const sName = t.schema || "default";
               if (!groups[sName]) groups[sName] = [];
               groups[sName].push(t);
@@ -1492,7 +1665,7 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
 
             Object.keys(groups).sort().forEach(sName => {
               const sKey = "s:" + c.name + ":" + sName;
-              const isSchemaExpanded = Boolean(state.treeExpanded[sKey]);
+              const isSchemaExpanded = filter ? true : Boolean(state.treeExpanded[sKey]);
               const sTables = groups[sName];
 
               const sNode = document.createElement("div");
@@ -1552,6 +1725,12 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
         node.appendChild(childrenDiv);
         treeEl.appendChild(node);
       });
+
+      if (filter && visibleCount === 0) {
+        treeEl.innerHTML = `<div style="padding:16px; color:var(--text-muted); font-size:0.82rem; text-align:center;">
+          No databases or tables matching "<b>${filter}</b>"
+        </div>`;
+      }
     }
 
     function connectAndSelectDatabase(c) {
@@ -3032,9 +3211,9 @@ docker exec -it ${c ? c.name : 'container'} psql -U ${user} -d ${db}`;
       showToast("Exported results to CSV!");
     }
 
-    async function handleContainerAction(action) {
-      if (!state.selectedContainer) return;
-      const name = state.selectedContainer.name;
+    async function handleContainerAction(action, targetName = null) {
+      const name = targetName || (state.selectedContainer && state.selectedContainer.name);
+      if (!name) return;
       showToast(`Executing ${action} on container '${name}'...`);
       try {
         const res = await fetch("/api/container-action", {
