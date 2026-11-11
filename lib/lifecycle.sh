@@ -173,7 +173,7 @@ handle_lifecycle_command() {
           "${CONTAINER_ENGINE}" exec -it "${target}" sh
           ;;
         mysql|mariadb)
-          "${CONTAINER_ENGINE}" exec -it "${target}" sh -c 'mysql -u "${MYSQL_USER:-root}" -p"${MYSQL_PASSWORD:-${MYSQL_ROOT_PASSWORD}}" "${MYSQL_DATABASE}"' || \
+          "${CONTAINER_ENGINE}" exec -it -e MYSQL_PWD="${MYSQL_PASSWORD:-${MYSQL_ROOT_PASSWORD:-P@55w0rd}}" "${target}" sh -c 'mysql -u "${MYSQL_USER:-root}" "${MYSQL_DATABASE:-userdata}"' || \
           "${CONTAINER_ENGINE}" exec -it "${target}" sh
           ;;
         redis|valkey)

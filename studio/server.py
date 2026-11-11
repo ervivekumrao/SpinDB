@@ -539,8 +539,8 @@ def execute_database_query(engine_name, container_name, query, db_info=None):
         elif engine_name in ("mysql", "mariadb"):
             dbname = database if database else "userdata"
             cmd = [
-                container_engine, "exec", container_name,
-                "mysql", "-u", user, f"-p{password}", dbname,
+                container_engine, "exec", "-e", f"MYSQL_PWD={password}", container_name,
+                "mysql", "-u", user, dbname,
                 "--batch", "--raw", "-e", query
             ]
             res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=20)
@@ -953,7 +953,7 @@ def dump_database(engine_name, container_name, db_info=None):
             pass
 
     elif engine_name in ("mysql", "mariadb"):
-        cmd = [c_engine, "exec", container_name, "mysqldump", "-u", user, f"-p{password}", database]
+        cmd = [c_engine, "exec", "-e", f"MYSQL_PWD={password}", container_name, "mysqldump", "-u", user, database]
         try:
             res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=40)
             if res.returncode == 0 and res.stdout:
@@ -993,7 +993,7 @@ def execute_multi_script(engine_name, container_name, script, db_info=None):
     if engine_name in ("postgres", "pgvector", "cockroach"):
         cmd = [c_engine, "exec", "-i", container_name, "psql", "-U", user, "-d", database]
     elif engine_name in ("mysql", "mariadb"):
-        cmd = [c_engine, "exec", "-i", container_name, "mysql", "-u", user, f"-p{password}", database]
+        cmd = [c_engine, "exec", "-i", "-e", f"MYSQL_PWD={password}", container_name, "mysql", "-u", user, database]
     elif engine_name == "clickhouse":
         cmd = [c_engine, "exec", "-i", container_name, "clickhouse-client", "--multiquery"]
     else:
