@@ -1635,7 +1635,8 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
     function renderTree() {
       const treeEl = document.getElementById("db-tree");
       const countEl = document.getElementById("db-count");
-      const activePending = (state.pendingSpins || []).filter(p => p.status !== "ready");
+      const runningNames = new Set((state.containers || []).map(c => c.name));
+      const activePending = (state.pendingSpins || []).filter(p => p.status !== "ready" && !runningNames.has(p.name));
       if (countEl) countEl.textContent = state.containers.length + (activePending.length > 0 ? ` (+${activePending.length} pending)` : "");
       if (!treeEl) return;
       treeEl.innerHTML = "";
@@ -1643,7 +1644,7 @@ Copyright (c) 2024-2026 Vivek Umrao and SpinDB contributors.
       // Render pending or recently failed spin operations at top of navigator
       if (state.pendingSpins && state.pendingSpins.length > 0) {
         state.pendingSpins.forEach(p => {
-          if (p.status === "ready") return;
+          if (p.status === "ready" || runningNames.has(p.name)) return;
           const isFailed = p.status === "failed";
           const node = document.createElement("div");
           node.className = "tree-node " + (isFailed ? "failed-node" : "pending-node");

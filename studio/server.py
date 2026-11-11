@@ -425,23 +425,43 @@ def get_in_progress_launches():
     return discovered
 
 
-def get_active_spin_jobs():
-    """Returns combined active spin operations from memory and host processes."""
+ANSI_ESCAPE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+
+
+def get_active_spin_jobs(running_names=None):
+    """Returns combined active spin operations from memory and host processes, deduplicated."""
+    running_set = set(running_names or [])
     with SPIN_JOBS_LOCK:
-        # Clean up old completed/failed jobs (> 10 mins)
         now = time.time()
-        to_del = [k for k, v in ACTIVE_SPIN_JOBS.items() if v.get("status") in ("ready", "failed") and (now - v.get("startTime", now)) > 600]
+        # Mark as ready or clean up if container is already running
+        for j in ACTIVE_SPIN_JOBS.values():
+            if j.get("name") in running_set and j.get("status") in ("launching", "pulling", "starting"):
+                j["status"] = "ready"
+                j["lastLog"] = "Database container is online and healthy."
+
+        to_del = [k for k, v in ACTIVE_SPIN_JOBS.items() if (v.get("status") == "ready" and v.get("name") in running_set) or ((v.get("status") in ("ready", "failed")) and (now - v.get("startTime", now)) > 180)]
         for k in to_del:
             del ACTIVE_SPIN_JOBS[k]
         active_list = list(ACTIVE_SPIN_JOBS.values())
 
-    # Add discovered process launches if not already tracked
     tracked_names = {j.get("name") for j in active_list}
+
     for proc_job in get_in_progress_launches():
-        if proc_job["name"] not in tracked_names:
+        if proc_job["name"] in running_set:
+            continue
+        # If this process matches an active tracked job for the same engine, harmonize name
+        matched = False
+        for j in active_list:
+            if j.get("engine") == proc_job["engine"] and j.get("status") in ("launching", "pulling", "starting"):
+                if j.get("name") != proc_job["name"]:
+                    j["name"] = proc_job["name"]
+                matched = True
+                break
+        if not matched and proc_job["name"] not in tracked_names:
             active_list.append(proc_job)
 
-    return active_list
+    # Exclude any jobs whose container is already running
+    return [j for j in active_list if j.get("name") not in running_set]
 
 
 def check_driver_downloaded(file_name):
@@ -1175,7 +1195,8 @@ class SpinDBStudioHandler(BaseHTTPRequestHandler):
         if path == "/api/containers":
             engine = resolve_container_engine()
             containers = get_running_containers()
-            pending = get_active_spin_jobs()
+            running_names = [c["name"] for c in containers]
+            pending = get_active_spin_jobs(running_names)
             self.send_json({"status": "ok", "engine": engine, "containers": containers, "pending": pending})
             return
 
@@ -1395,7 +1416,12 @@ class SpinDBStudioHandler(BaseHTTPRequestHandler):
             catalog_entry = DRIVER_CATALOG.get(engine, {})
             default_port = catalog_entry.get("defaultPort", "5432")
             target_port = port or str(default_port)
-            target_name = name or f"{engine}-{target_port}"
+            if name:
+                target_name = name
+            elif version and version != "latest":
+                target_name = f"{engine}-{version}-{target_port}"
+            else:
+                target_name = f"{engine}-{target_port}"
 
             with SPIN_JOBS_LOCK:
                 # Prevent duplicate colliding spins for the same container name or engine
@@ -1444,12 +1470,16 @@ class SpinDBStudioHandler(BaseHTTPRequestHandler):
                         job_record["pid"] = proc.pid
 
                     for raw_line in iter(proc.stdout.readline, ''):
-                        line = raw_line.strip()
-                        if not line:
+                        clean_line = ANSI_ESCAPE.sub('', raw_line).strip()
+                        if not clean_line:
                             continue
                         with SPIN_JOBS_LOCK:
-                            job_record["lastLog"] = line
-                            job_record["logs"].append(line)
+                            inst_match = re.search(r"Instance:\s+([a-zA-Z0-9_\-\.]+)", clean_line)
+                            if inst_match:
+                                job_record["name"] = inst_match.group(1)
+
+                            job_record["lastLog"] = clean_line
+                            job_record["logs"].append(clean_line)
                             if len(job_record["logs"]) > 100:
                                 job_record["logs"].pop(0)
 
