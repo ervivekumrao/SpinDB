@@ -30,6 +30,8 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 PROPERTIES_FILE = PROJECT_ROOT / "Database.properties"
 LOCAL_PROPERTIES_FILE = PROJECT_ROOT / "Database.properties.local"
 LIB_DIR = PROJECT_ROOT / "lib"
+DRIVERS_DIR = PROJECT_ROOT / "drivers"
+USER_CACHE_DRIVERS_DIR = Path.home() / ".cache" / "spindb" / "drivers"
 SPINCTL_BIN = PROJECT_ROOT / "bin" / "spinctl"
 
 # Supported Driver Catalog with official Maven and portal download locations
@@ -387,11 +389,13 @@ def get_running_containers(engine=None):
 
 
 def check_driver_downloaded(file_name):
-    """Checks if a driver JAR exists in the local lib directory."""
+    """Checks if a driver JAR exists in the local drivers directory, user cache, or lib fallback."""
     if not file_name:
         return False
-    local_path = LIB_DIR / file_name
-    return local_path.is_file() and local_path.stat().st_size > 1024
+    for dpath in [DRIVERS_DIR / file_name, USER_CACHE_DRIVERS_DIR / file_name, LIB_DIR / file_name]:
+        if dpath.is_file() and dpath.stat().st_size > 1024:
+            return True
+    return False
 
 
 def execute_database_query(engine_name, container_name, query, db_info=None):
@@ -1048,14 +1052,16 @@ def test_database_connection(container_name, engine_name, jdbc_url, user=None, p
     }
 
 
-STUDIO_HTML_FILE = SCRIPT_DIR / "studio.html"
+STUDIO_HTML_FILE = SCRIPT_DIR / "static" / "studio.html"
+FALLBACK_HTML_FILE = PROJECT_ROOT / "lib" / "studio.html"
 
 
 def get_studio_html():
-    """Loads studio HTML from companion file studio.html with fallback."""
-    if STUDIO_HTML_FILE.exists():
-        with open(STUDIO_HTML_FILE, "r", encoding="utf-8") as f:
-            return f.read()
+    """Loads studio HTML from static/studio.html with fallback."""
+    for html_path in [STUDIO_HTML_FILE, SCRIPT_DIR / "studio.html", FALLBACK_HTML_FILE]:
+        if html_path.exists():
+            with open(html_path, "r", encoding="utf-8") as f:
+                return f.read()
     return "<!DOCTYPE html><html><body><h3>SpinDB Web Studio HTML file not found</h3></body></html>"
 
 

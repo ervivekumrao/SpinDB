@@ -35,8 +35,8 @@ test_studio_cli_help() {
 test_studio_python_driver_catalog() {
   python3 -c "
 import sys
-sys.path.insert(0, '${PROJECT_ROOT}/lib')
-import studio
+sys.path.insert(0, '${PROJECT_ROOT}/studio')
+import server as studio
 
 assert 'postgres' in studio.DRIVER_CATALOG, 'postgres missing from catalog'
 assert 'mysql' in studio.DRIVER_CATALOG, 'mysql missing from catalog'
@@ -61,8 +61,8 @@ assert pg['downloadUrl'].startswith('https://repo1.maven.org/')
 test_studio_properties_loading_and_jdbc_template() {
   python3 -c "
 import sys
-sys.path.insert(0, '${PROJECT_ROOT}/lib')
-import studio
+sys.path.insert(0, '${PROJECT_ROOT}/studio')
+import server as studio
 
 props = studio.load_properties()
 assert 'POSTGRES_JDBC_URL' in props or 'POSTGRES_PORT' in props, 'Properties not loaded'
@@ -78,7 +78,12 @@ test_studio_server_smoke_startup_and_api() {
   local log_tmp
   log_tmp="$(mktemp)"
 
-  python3 "${PROJECT_ROOT}/lib/studio.py" --port "${test_port}" >"${log_tmp}" 2>&1 &
+  local server_bin="${PROJECT_ROOT}/studio/server.py"
+  if [[ ! -f "${server_bin}" ]]; then
+    server_bin="${PROJECT_ROOT}/lib/studio.py"
+  fi
+
+  python3 "${server_bin}" --port "${test_port}" >"${log_tmp}" 2>&1 &
   py_pid=$!
 
   # Clean up process on exit

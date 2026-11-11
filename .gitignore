@@ -29,6 +29,11 @@ tmp/
 __pycache__/
 *.pyc
 
+# JDBC Driver Binaries & Cache (Never Commit Binary JARs)
+drivers/*.jar
+drivers/*.zip
+!drivers/.gitkeep
+
 # Environment Overrides & Secret Credentials (Never Commit Secrets)
 *.local.properties
 Database.properties.local

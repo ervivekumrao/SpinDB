@@ -65,7 +65,12 @@ launch_studio() {
     exit 1
   fi
 
-  local py_args=("${PROJECT_ROOT}/lib/studio.py" "--port" "${port}")
+  local server_script="${PROJECT_ROOT}/studio/server.py"
+  if [[ ! -f "${server_script}" && -f "${PROJECT_ROOT}/lib/studio.py" ]]; then
+    server_script="${PROJECT_ROOT}/lib/studio.py"
+  fi
+
+  local py_args=("${server_script}" "--port" "${port}")
   if [[ -n "${target}" ]]; then
     py_args+=("--target" "${target}")
   fi
